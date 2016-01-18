@@ -21,9 +21,9 @@ show current - All VLANs when switch in VTP server mode
 
 show proposed
 
-apply
-abort - aborts changes
-reset - as above, but stays in VLAN DB config mode
+apply  
+abort - aborts changes  
+reset - as above, but stays in VLAN DB config mode  
 
 ## INts in VLANs
 
@@ -33,7 +33,7 @@ show vlan brief - show ports in VLANs (access)
 
 Extended range and PVLANs
 
-switchport access vlan 31 - creates VLAN 31
+switchport access vlan 31 - creates VLAN 31  
 vlan 32
 
 ## VLAN operational status
@@ -120,8 +120,48 @@ switchport trunk - trunk parameters
 switchport access - Nontrunk parameters
 ```
 
-show int trunk
-show int <int> trunk
-show int <int> switchport
-show dtp
+show int trunk  
+show int *int* trunk  
+show int *int* switchport  
+show dtp  
+
+## Allowed, Active and Pruned VLANs
+
+* switchport trunk allowed
+* VTP can prune
+* show int trunk shows allowed, allowed and active (PVST+ STP instance will be running on this trunk for VLANs in list), active and not pruned (no VTP/PVST+ blocked/pruned VLANs)
+
+## Trunking Config
+
+* switchport mode
+* switchport nonegotiate
+* switchport mode trunk - Always trunks this side, DTP helps other side
+* switchport mode dynamic desirable - hopes to trunk
+* switchport mode dynamic auto - hopes for access
+* switchport mode access - never trunks, DTP helps other side
+* switchport trunk encapsulation - sets trunking type
+
+## Trunking on routers
+
+Sub-IFs, do not need to match VLAN ID. Set it with encapsulation command. Recommend to use **encapsulation dot1q vlan-id native**, allows both untagged and CoS marked frames tagged with VLAN ID
+
+# Q-in-Q Tunneling
+
+802.1ad (provider bridges)
+802.1ah (provider backbone bridges)
+
+*vlan dot1g tag native*
+
+```
+int Fa0/1
+ switchport mode dot1q-tunnel
+ switchport access vlan 5
+ l2protocol-tunnel cdp
+ l2protocol-tunnel lldp
+ l2protocol-tunnel stp
+ l2protocol-tunnel vtp
+```
+
+show int fa0/1 then shows admin and operational mode of tunnel
+
 
