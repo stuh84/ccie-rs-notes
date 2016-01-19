@@ -166,4 +166,134 @@ int Fa0/1
 
 show int fa0/1 then shows admin and operational mode of tunnel
 
+# VLAN Trunking Protocol
+
+* Advertises VLAN ID, name, VLAN type and state
+* Three versions, v1 and v2 on IOS and CatOS, v3 on IOS from 12.2(52)SE
+* v1 no extended range VLANs
+
+V2 additions
+
+* TrCRF and TrBRF type VLANs (token ring)
+* Unknown TLV propagation
+* DB consistency check done at CLI input, rather than on SNMP or VTP receive
+
+
+VTP transparent allows forwarding messages if domain is null, otherwise for its domain
+
+v3 additions
+
+* Primary and secondary servers - Only primary can update, secondary can be promoted to primary
+* Passwords stored encrypted, can be transmitted to another switch, promotion requires using it
+* Extended range and PVLANs, pruning only on normal range
+* Off mode - drops all VTP messages (per trunk or global)
+* Cab distribute MST region config
+
+v1 and v2 use four message types
+
+* Summary advertisement - From all switches, every 5 mins and after db mod, VTP domain name, revision number, identity of updater, time stamp of update, md5 sum over VLAN DB contents and VTP password, and number of subsets to follow
+* Subset advertisement - Originated by db modifier, carries full VLAN db contents. One advertisement holds multiple VLAN db entries, may need multiple subset messages
+* Advertisement request - To request complete vlan db or part, sent after advertisement, or whe receiving summary with higher rev number
+* Join - Sent every 6 seconds if VTP pruning active, contains bitfield for each VLAN in normal range, and used/unused
+
+VTP messages only on trunks
+
+## Process and Rev Numbers
+
+* v1 and v2, update when VLAN added/deleted/updated. Rev number up by 1, entire VLAN db and rev number sent out
+* If VLAN db with higher rev number received, automatically assumed to be new VLAN db
+* Default of VTP server
+* No updates sent until domain config'd
+* No domain config on client, uses VTP domain of first rx'd message, mode config required
+* VLAN config stored in vlan.dat (not NVRAM)
+* Config db can be flash by trunks failing and changes
+
+Newly connected client can change another switches VTP db if: -
+
+* New link is trunk
+* Same domain name
+* Higher rev number
+* Same password
+
+VLAN db hash with current db and pw, compared to MD5 in Summary and at least one subset
+
+v3
+* Primary server - only vlan DB that can be sent through domain
+* Clients and servers must agree on domain and primary server (base MAC defined)
+* Secondary servers - no changes, can be promoted (**vtp primary**)
+* No sync if don't match
+* One primary server per domain. 
+* Reload of primary makes it secondary on reboot
+* Can't reset revision with rev 0 and VTP transparent
+* Can reset with different VTP domain or pw
+* v3 reverts to v2 operation if v2 present
+* not compatible with v1
+
+## Config
+
+```
+vtp domain DOMAIN
+
+show vtp status
+
+vtp password
+
+vtp mode server/transparent/client/off
+
+vtp version <---- 1 and 2 applies to all switches in domain, v3 done per switch (must have domain set too)
+```
+
+## Normal and Extended Range VLANs
+
+1-1005 supported in v1 and v2, in config or db mode
+
+Extended dont go in vlan.dat, only work in transparent mode. In v3, all info stored in vlan.dat
+
+ISL used 10 bits for VLAN ID, so couldn't do extended range. Later update to match 802.1q (12 bits)
+
+1002-1005 - FDDI and TR
+
+## Storing VLAN config
+
+* vlan.dat or running config (based upon vtp ver and extended vlans)
+* In v3, all in vlan.dat. If transparent or off, also in running config
+
+# Configuring PPPoE
+
+* Virtualizes ethernet, turns into multiple p2p between client and AC
+* Per-user auth
+* Negotiation of upper protocols (eg IPCP)
+* Neg of compression and link bundling
+* IOS Router can be client rather than setting on a host
+* 8 byte overhead for PPPoE (2 byte PPP, 6 byte PPPoE)
+* MTU 1492
+* MSS clamped to 1452 to fit IP an TCP headers plus 8 byte PPPoE header
+
+```
+int Fa0/0
+ ip address 192.168.100.1 255.255.255.0
+ ip nat inside
+
+int Fa0/1
+ pppoe-client dial-pool-number 1
+
+int dialer1
+ mtu 1492
+ ip tcp adjust-mss 1452
+ encap ppp
+ ip address negotiated
+ ppp chap hostname Username@ISP 
+ ppp chap password Password4ISP
+ ip nat outside
+ dialer pool 1
+
+ip nat inside source list 1 interface dialer 1 overload
+
+access-list 1 permit 192.168.100.0 0.0.0.255
+ip route 0.0.0.0 0.0.0.0 dialer1
+```
+
+**show pppoe session**
+**debug pppoe data/errors/events/packets**
+
 
