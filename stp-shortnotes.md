@@ -65,3 +65,24 @@ Standard | 10M | 100M | 1G | 10G
 Pre-802.1D-1998 |100|10|1|1|
 802.1D-1998|100|19|4|2|
 802.1D-2004|2000000|200000|20000|2000
+
+1998 default on most CAT switches. 2004 for MST by default. Change with **spanning-tree pathcost method long**
+
+### Determining DP
+
+* Hellos forwarded onto LAN segment by designated switch
+* Port forwarding is DP
+* ALl others root or blocked
+* Superior hellos
+
+Tiebreakers same as before
+
+### Summary of rules
+
+* Root Switch - Lowest BID
+* RP - Least path cost to root
+* DP - Sends best BPDUs to segment
+* ALl other ports blocking
+* Config BPDUs only from DP (would be inferior on other ports, including RP)
+* Each port stores best BPDU sent/received. DP store best sent, RP and block store best rx'd
+* RXd BPDUs expire - MaxAge-MessageAge
