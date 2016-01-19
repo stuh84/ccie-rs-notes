@@ -86,3 +86,86 @@ Tiebreakers same as before
 * Config BPDUs only from DP (would be inferior on other ports, including RP)
 * Each port stores best BPDU sent/received. DP store best sent, RP and block store best rx'd
 * RXd BPDUs expire - MaxAge-MessageAge
+
+## Converging to a new STP topology
+
+When stable, BPDUs unchanged, same results calculated.
+
+TC event when: -
+* TCN BPDU rx'd on DP
+* Port moves to forwarding and switch has at least one DP
+* Port moves from Learning or forwarding to block
+* Switch becomes root
+
+During TC, switch sends BPDUs with updated contents. Neighbours recalculate ports
+
+## TCN and updating CAM
+
+* Switches instructed to age out unused CAM entries
+* Forward Delay timer (default 15s) to time out CAM entries
+
+TCNs go to Root, root informs switches. TCNs sent as config BPDUs cannot go upstream.
+
+1. TC occurs
+2. Switch sends TCN BPDUs out RP until acked
+3. Upstream switch acks with next hello, marks TCA bit
+4. Upstream repeats 1-3
+5. When TCN at root, BPDU with TCA sent through rx'd port
+6. For MaxAge+ForwardDelay seconds, root sends BPDUs with TC bit set, all switches time out CAM entries
+
+## Transitioning from blocking to forwarding
+
+No immediate change as loop potential.
+
+Listening then learning, both ForwardDelay (default 15s)
+
+Listening - No forwarding, no MAC learning
+Learning - No forwarding, MAC learning
+
+# PVST and STP over trunks
+
+PVST+ has STP per VLAN. Different roots, different ints for forwarding/blocking.
+
+With 802.1Q and non-Cisco switches, only CST.
+
+PVST+ runs on trunks as VLAN 1 STP instance. In CST regions, binding for all VLANs. In PVST+ region, only for 1 VLAN.
+
+* CST treated as loop-free shared segment
+* PVST+ BPDUs encapd with multicast dest mac of 0100.0CCC.CCCD, tagged with correct VLAN
+* Using SNAP encap (ordinary BPDUs use LLC). 
+* TLV at end of BPDU with VLAN number of BPDU. Used to check for native VLAN mismatches
+* VLAN1 on PVST+ uses standard BPDUs and PVST+ BPDU. PVST+ one only for mismatches
+
+When sending BPDUs, access ports tx IEEE BPDUs to their access VLANs.
+
+Trunks do: -
+* IEEE BPDU for VLAN 1 (untagged)
+* PVST+ BPDUs for all existing and allowed VLANs
+
+If access port gets BPDU with wrong VLAN, Type Inconsistent.
+
+On trunk: 
+
+* IEEE BPDUs processed by VLAN 1 STP instance
+* PVST+ BPDUs go through: -
+
+1. Check VLAN tag, if tagged, BPDU in that VLAN. If no tag, native VLAN
+2. Check PVID TLV. If no match, PVIDInconsitent state, BPDU dropped
+3. If PVID TLV match, processed by VLAN STP. PVST+ VLAN 1 duplicate of IEEE.
+
+## STP Config and Analysis
+
+**show spanning-tree root** - If on root, "This bridge is root"
+
+**spanning-tree vlan 1 priority 28672**
+
+```
+int Fa0/1
+ spanning-tree vlan 1 cost 100
+```
+
+**spanning-tree vlan vlan-id root { primary | secondary } [diameter value] - Diameter lowers timers, sets pririty to 24756 if current root larger, or 4096 below root. Secondary set to 28672 always.
+
+# RSTP
+
+IEEE 802.1w
