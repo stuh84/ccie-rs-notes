@@ -2,17 +2,17 @@
 
 *T568A*
 
-Pair 1 - 4 5
-Pair 2 - 3 6
-Pair 3 - 1 2
-Pair 4 - 7 8
+Pair 1 - 4 5  
+Pair 2 - 3 6  
+Pair 3 - 1 2  
+Pair 4 - 7 8  
 
 *T568B*
 
-Pair 1 - 4 5
-Pair 2 - 1 2
-Pair 3 - 3 6
-Pair 4 - 7 8
+Pair 1 - 4 5  
+Pair 2 - 1 2  
+Pair 3 - 3 6  
+Pair 4 - 7 8  
 
 Pairs 2 and 3 twisted
 
@@ -33,12 +33,12 @@ Duplex with autoneg only, Hdx chosen as default on 10/100, fdx on gig
 
 # CSMA/CD
 
-1) Listen until ethernet nost busy (no carrier sign on Ethernet)
-2) When not busy, send
-3) Listens for no collisions
-4) If collisions, all send jamming signal
-5) After jamming, each sender of collided frame starts random timer, sends after time
-6) After timers, step 1
+1. Listen until ethernet nost busy (no carrier sign on Ethernet)
+2. When not busy, send
+3. Listens for no collisions
+4. If collisions, all send jamming signal
+5. After jamming, each sender of collided frame starts random timer, sends after time
+6. After timers, step 1
 
 # Collision domains and switch buffering
 
@@ -115,9 +115,9 @@ Switches learn macs on source MAC field in frame
 
 # SPAN, RSPAN and ERSPAN
 
-SPAN - Local
-RSPAN - Remote dest, vlan based
-ERSPAN - GRE est
+SPAN - Local  
+RSPAN - Remote dest, vlan based  
+ERSPAN - GRE dest  
 
 ## Core concept of SPAN, RSPAN and ERSPAN
 
@@ -149,7 +149,7 @@ Number of conditions to work: -
 
 Default both directions. Restrictions for in one direction: -
 
-RX - Each frame transported with modification
+RX - Each frame transported with modification  
 TX - All modifications take place before transmit (eg QoS, ACL filtering etc). Some L2 frames can be exempt using encapsulation command
 
 ## Basic SPAN Config

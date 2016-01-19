@@ -38,8 +38,8 @@ vlan 32
 
 ## VLAN operational status
 
-state suspend - Both config modes, suspends through VTP domain
-shutdown - local
+state suspend - Both config modes, suspends through VTP domain  
+shutdown - local  
 
 ## PVLANs
 
@@ -84,7 +84,8 @@ int vlan 100
 
 # VLAN Trunking
 
-*ISL*
+**ISL**
+
 * Cisco proprietary
 * Encapsulates
 * Normal and extended range
@@ -94,7 +95,8 @@ int vlan 100
 * Multicast dest of either 0100.0C00.0000 or 0300.0C00.0000
 * Technically SNAP-encap frame
 
-*802.1q*
+**802.1q**
+
 * IEEE defined
 * Tags frame
 * Extended range
@@ -147,7 +149,7 @@ Sub-IFs, do not need to match VLAN ID. Set it with encapsulation command. Recomm
 
 # Q-in-Q Tunneling
 
-802.1ad (provider bridges)
+802.1ad (provider bridges)  
 802.1ah (provider backbone bridges)
 
 *vlan dot1g tag native*
