@@ -352,3 +352,241 @@ int Fa0/1
 
 Use **vtp mode servet mst** and **vtp primary mst**, distributes MST config across VTPv3 domain.
 
+# Protecting and optimizing STP
+
+## Portfast Ports
+
+* Edge port
+* Forwarding immediately
+* Not part of Sync, P/A
+* Send BPDUs, none expected back
+* If rx BPDUs, Portfast disabled until port goes down and up
+* No issues to DHCP for hosts
+* Ports don't go discarding during P/A phase
+
+**spanning-tree portfast**
+**spanning-tree portfast default**
+**spanning-tree disable**
+**spanning-tree portfast trunk** - Brings trunk up immediately
+
+## Root Guard, BPDU guard and BPDU Filter
+
+BPDU Guard
+* Per port or globally per portfast port
+* Err disables port on BPDU rx
+* spanning-tree bpduguard enable
+* spanning-tree portfast bpduguard default
+* spanning-tree bpduguard disable
+* err-disable not receovered unless additional config added
+
+Root Guard
+* Per port
+* Ignores superior BPDUs
+* root inconsisent blocking
+* All frames cease until BPDUs cease
+* spanning-tree guard root
+* Recovers when BPDUs expire (MaxAge-MessageAge in STP, 3xhello in RSTP)
+
+BPDU Filter
+* Stops tx
+* Optionally stops rx
+* If global configged, applies only to edge ports
+ * 10 Hellos sent to start, then stops sending BPDUs
+ * Can still rx BPDUs, would disable BPDU filter (back to 10 hellos)
+ * spanning-tree portfast bpdufilter default
+ * spanning-tree bpdufilter disable
+* If per port, unconditional stopping of rx and tx
+
+Global BPDU filter with BPDU guard works, received BPDU will automatically errdisable. Per port doesnt as no BPDUs ever get to BPDU guard
+
+## Unidirectional Link Issues
+
+UDLD, STP Loop Guard, Bridge Assuarance, RSTP/MST Dispute
+
+**UDLD**
+
+* Cisco proprietary
+* Echo mechanism between device pair
+* Switch ID and port ID in message
+* Message lists all neighbouring switch/port pairs on same segment
+
+Detected like so: -
+
+* Switch/Port pair does not appear in other switches list of detected neighbours
+* Same originator Switch Port/Pair in message, looped port
+* Single neighbour detected, but UDLD message contains more than one, shared media issue
+
+Err-dsiabled if above found.
+
+Two operational modes
+* Normal - Attempts to reconnect 8 times if messages lost, no action taken if attempts failed
+* Aggressive - As above, but err-disables port
+
+**udld { enable | aggressive }** - Global, only fibre ports
+
+**udld port [ aggressive ]** - Per port, any media
+
+**show udld neighbors**
+
+**udld reset** - resets state
+
+**STP Loop Guard**
+
+If receiving BPDUs on Root/Alternate ports, unidirectional link could move to DP. Loop Guard assumes after BPDUs rx'd, not poss in working network to stop rx'ing them without physical failure. Ports can't be DP.
+
+Loop inconsisent state, starts on loss of BPDU, stops on rx BPDU
+
+**spanning-tree loopguard default** - Global, automatically added to RP and AP, not shared link
+
+**spanning-tree guard loop** - Per port, can go on shared
+
+**Bridge Assurance**
+
+* RPVST+ and MST only, on p2p links. 
+* BPDUs sent on port at each hello always, on RP, DP, AP or BP
+* BPDUs become hello mechanism
+* If loss of BPDUs, BA-inconsistent
+* Support on Cat 6500 and Nexus 7000
+
+**spanning-tree bridge assurance**
+**spanning-tree portfast network**
+
+**Dispute Mechanism**
+
+Info in RSTP and MST BPDUs (role and state of port)
+
+* If inferior BPDU from a port claiming Designated Learning or FOrwarding, moves to discarding
+* Also exists in RPVST+
+* No config required
+
+# Configuring and Troubleshooting Etherchannels
+
+* PortChannels
+* STP sees as one link
+* Bandwidth only parameter changed on link failure
+
+## Load balancing
+
+* Hashing over frame address fields
+* Matching fields across frames form flow/conversation
+* Flow produces same has, so same link
+* LB on L2, L3 and/or L4 headers
+* XOR if more than one field
+
+Over L2 port channel, might have multiple dest macs, one source mac, and vice versa in other direction. Use different hashing
+
+**port-channel load-balance type** - Global command
+
+* Max active links is 8
+* On CAT switches LB mechanism produces 3 bit result in 0-7, values assign ed to links
+* Fewer links means 2 results could be on same link
+* Traffic tends to be equal across 8, 4 or 2 links
+* Other switch platforms use 8 bit hash, 1/256 of traffic, more granular
+
+## Discovery and config
+
+Must have same: -
+
+* Speed and duplex settings
+* Same mode (trunk, access, dynamic)
+* Same access VLAN
+* Same allowed and native VLANs
+* No SPAN ports
+* int Port-Channel added when Port Channel created
+* Inherits config of first int added, all others compared
+* Port suspended if no config match
+* Config changes on Port-Channel only on non-suspended members
+
+Following guidelines: -
+
+* Don't create PC manually
+* Remove port channel from config so no issues when adding ports later
+* Identical phy port config
+* Correct physical port config first, not PC
+* Can be L2 or L3, not possible to change after PC created. Can combine L2 and L3 in a PC
+* Shut down phy interfaces and port channel when fixing err-disable
+
+**channel-group mode on** - static Port-Channel
+
+Only single BPDU sent per port channel, also subject to hash. May not turn up on ports that go forwarding, hence dispute mechanism.
+
+Etherchannel Misconfig Guard - BPDUs should be rx'd over etherchannel with same source MAC in ehternet header. If not, ports treated as individual links. Doesnt help if only one BPDU rx'd over one link/ Enabled by default, disable with **no spanning-tree etherchannel guard misconfig**
+
+802.1AX (formerly 802.3ad) LACP or PAgP
+
+**PAgP**
+* Max 8 links, no more in PC, ca only change timers (normal: 30s, fast: 1s)
+* **channel-group 1 mode auto/desirable**
+
+**LACP**
+* Max 16 links
+* 8 active, rest in Hot Standby
+* One switch in charged of standby, lowest LACP system ID, set with **lacp system-priority**,
+* If multiple standby links, switch in control chooses with lowest port ID< change with **lacp port-priority**, 0-65535
+* **channel-group 1 mode active/passive**
+
+Helper commands limit to LACP or PAgP commands **channel-protocol pagp/lacp**
+
+* Messages include System IDs, ID of physical ports and group
+* No detail port info beyond this
+* Verify if links to be bundled connected to same neighbouring device and same group
+
+# Troubleshoot L2
+
+## CDP
+
+* Name of device, hostname
+* IOS version
+* Hardware capabilities (routing, switching and/or bridging)
+* Platform
+* L3 address
+* Interface
+* Duplex
+* VTP domain
+* Native VLAN
+* May be off on VT or Multipoint FR
+* Holddown 180s
+* **no cdp run** - Global
+* **no cdp enable** - Per port (can't disable globally and enable per port)
+* **show cdp timers**
+* **cdp timer seconds**
+* **cdp holdtime seconds**
+
+## LLDP
+
+* 802.1AB
+* TLVs
+* Mandatory TLVs are
+ * Port Description
+ * System Name
+ * System Description
+ * System capabilities
+ * Management Address
+* **lldp run**
+* **lldp transmit**
+* **lldp receive**
+* **lldp holdtime**
+* **lldp reinit**
+* **lldp timer**
+
+## Interface staistics
+
+* Runts - <64 byte frame
+* CRC errors - FCS doesn't match calculation
+* Frames - CRC error and noninteger octets
+* Alignment - CRCs and odd octets
+* Collision - Duplex mismatch
+* Late collision - Collision occurs after first 64 bytes
+
+**show controllers**
+
+## STP
+
+**show int status err-disabled**
+
+**show spanning-tree inconsistent ports**
+
+**show spanning-tree [ vlan number ] root [ detail | priority [ system-id ] ]**
+
+
+
