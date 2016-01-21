@@ -352,8 +352,8 @@ ip sla monitor schedule 1 life 86400 start-time now
 ```
 
 Verify with 
-**show ip sla monitor statistics**
-** show ip sla monitor configuration**
+**show ip sla monitor statistics**  
+**show ip sla monitor configuration**  
 
 # Implementing Netflow
 
@@ -388,10 +388,10 @@ int F0/0
 ```
 
 Verify: -
-**show flow record**
-**show flow monitor**
-**show flow exporter**
-**show flow interface**
+**show flow record**  
+**show flow monitor**  
+**show flow exporter**  
+**show flow interface**  
 
 # Router IP traffic Export (RITE)
 
@@ -480,5 +480,67 @@ rmon alarm 11 ifInerrors.1 60 delta rising-threshold 10 1 falling-threshold 5 2 
 rmon alarm 20 ifInerrors.2 60 absolute rising-threshold 20 3 falling-threshold 10 4 owner config
 ```
 
-**show rmon alarm**
-**show rmon event**
+**show rmon alarm**  
+**show rmon event**  
+
+# FTP on a router
+
+* Can be TFTP server
+* Can't be FTP server
+* Transfer files with **ip ftp** command and options
+* **ip ftp username**
+* **ip ftp password**
+* **ip ftp source-interface**
+* **copy startup-config ftp:**
+* Can send dump in crash
+
+```
+ip ftp username Dave
+ip ftp password DaveTheFish
+
+exception protocol ftp
+exception region-size 65536
+exception dump 172.30.19.63
+
+ip ftp passive # If required
+```
+
+# TFTP server
+
+Enable with **tftp server**, can specify memory region, and ACL for hosts with access. 
+
+**tftp-server flash:startup-config myconfig.file 11**
+
+
+# SCP
+
+* Requires AAA
+* **ip scp server enable**
+
+# HTTP and HTTPS
+
+* **ip http server**
+* **ip http port**
+* **ip http access-class**
+* **ip http client username**
+* **ip http client password**
+* **ip http authentication [ aaa | local | enable | tacacs ]**
+
+* **ip http secure-server**
+* On 12.4 or later, disables HTTP access
+* Can specify cipher suite
+* Show status and cipher suite with **show ip http server secure status**
+
+# Implementing Telnet
+
+* On VTY, login command (eg **login local**)
+* Uses port 23, can be rotary (rotary 33 would be ports 3033, 4033 etc)
+
+# Implementing SSH
+
+1. Configure **hostname**
+2. Configure **ip domain-name**
+3. **crypto key generate rsa**
+4. **transport input ssh**
+
+Can uses rotaries too
