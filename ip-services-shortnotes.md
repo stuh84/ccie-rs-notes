@@ -221,3 +221,30 @@ Messages: -
 |Inform|1|Response|Manager|Used between managers|
 
 Successive GetNexts or GetBulks with MIB walk
+
+## MIBs
+
+* Standard generic MIBs in v1 and v2
+* RFC 1156 - MIB-1
+* RFC 1213 - MIB-2
+* MIB2 created between release of v1 and v2
+* After MIB-II, IETF stopped working on standard MIBs, set other groups to create MIBs for their tech (hundreds of standardized MIBs)
+* RMON MIB (RFC2819) allows SNMP set, capite packets, stats, monitor thresholds etc
+
+## SNMP Security
+
+* v3 added auth and ecryption
+* SHA and MD5 create message digest of each protocol message
+* Encrypted with DES and AES (AES not in original v3 specs)
+
+```
+access-list 33 permit 192.168.1.0 0.0.0.255
+snmp-server community public RW33
+snmp-server location HERE
+snmp-server contact FECK@FECK.com
+snmp-server chassis-od 2511
+snmp-server enable traps snmp
+snmp-server enable traps hsrp
+snmp-server enable traps bgp
+snmp-server host 192.168.1.100 public
+```
