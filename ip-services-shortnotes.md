@@ -248,3 +248,237 @@ snmp-server enable traps hsrp
 snmp-server enable traps bgp
 snmp-server host 192.168.1.100 public
 ```
+
+# Syslog
+
+* Ciscos dont log to non-volatile memory by default
+* Enable above with **logging buffered**
+* RFC5424 for syslog
+* Middle ground between manual log parsing and SNMP
+* Real time event noficiation
+* Sends messages to syslog servers
+* UDP 514 default
+* All events that enter log to syslog server by default
+* Clear text
+
+1. Install syslog server
+2. Configure to send with **logging host**
+3. Config severity levels with **logging trap** then 0-7
+
+# WCCP
+
+* Routers use caching engines
+* Differs from web proxying (hosts unaware0
+
+Following process
+1. Client sents HTTP get
+2. Router sees above, redirects to content engine
+3. Content engine looks if cached
+ a. If cached, HTTP response back
+ b. If not, content engine sends Get to original server
+4. If 3b taken, server replies to client
+
+* UDP 2048
+* Pool of content engines possble (cluster), they are aware of each other
+* Pool communicates in WCCP messages
+* 32 can communicate with one router using WCCPv1
+* If more than one present, lowest IP elected as lead engine
+* Info on cluster provided to engines by router in a list
+* Lead content engine can use above to distribtue traffic
+* If v1, only one router
+* v2 has multiple routers and engines in a service group
+* v1 for HTTP port 80 only, v2 others
+
+v2 over v1
+* Supports TCP and UDP outside of 80 (FTP, FTP proxy, Real Audio, video, telephony etc)
+* Segment caches by protocol or protocols, priority system to decide how
+* Multicast support
+* Multiple routers (32 per cluster)
+* MD5 security **ip wccp password**
+* Load distribution
+* Transparent error handling
+
+v2 by default in IOS. Conf'd globally, affets all ints. Routers and engines can be in more than one service group
+
+```
+ip wccp web-cache group-address 239.128.1.100 password Cisco
+
+int fa0/0
+ ip wccp web-cache redirect out
+
+int fa0/1
+ ip wccp redirect exclude in
+```
+
+WCCP ACLs exist, can filter for certin clients **ip wccp web-cache redirect-list**. **ip wccp web-cache group-list** says what traffic router accepts from content engines
+
+# IP SLA
+
+* Used to be Service Assurance Agent (SAA), and previously RTR (Response Time Report)
+* Probes network
+* Built around source-responder
+
+Can measure following: -
+
+* Delay (one way and RTT)
+* Jitter (directional)
+* Packet loss (directional)
+* Packet sequencing
+* Path (per hop)
+* Connectivity (UDP echo, ICMP echo, ICMP echo, TCP connect)
+* Server or website download time
+* Voice quality metrics (MOS)
+
+Steps required: -
+
+1. Config SLA type
+2. Configure threshold conditions
+3. Configure responder
+4. Schedule/start
+5. Review results
+
+Must delete to reconfigure options, also deletes schedule.
+
+Supports MD5 with **ip sla key-chain**
+
+Set up responder with **ip sla monitor responder**
+
+```
+ip sla monitor 1
+ type udpEcho dest-ipaddr 200.1.200.9 dest-port 1330
+ frequency 5
+ exit
+ip sla monitor schedule 1 life 86400 start-time now
+```
+
+Verify with 
+**show ip sla monitor statistics**
+** show ip sla monitor configuration**
+
+# Implementing Netflow
+
+* Currentl on v9, renamed to Cisco Flexible Netflow
+* Used to be seven fixed tuple identifying flow
+* Now can have as mahy as you want
+
+Components are: -
+
+* Records - Key fields (predefined or user-defined), dest IP, source IP etc
+* Flow monitors - Applied to int, includes records, cache and optional flow export
+* Flow exporters - Export cached flow to outside systems
+* Flow samplers - Reduces loads on Netflow devices, sample size definable, between 1:2 to 1:32768 packets
+
+```
+flow export ipv4flowexport
+ destination 192.168.1.110
+ dscp 8
+ transport udp 1333
+
+flow monitor ipv4flow
+ description Monitors all v4 traffic
+ record netflow ipv4 original-npurt
+ cache timeout inactive 600
+ cache timeout active 180
+ cache entries 5000
+ statistics packet protocol
+
+int F0/0
+ ip address 192.168.39.9 255.255.255.0
+ ip flow monitor ipv4flow input
+```
+
+Verify: -
+**show flow record**
+**show flow monitor**
+**show flow exporter**
+**show flow interface**
+
+# Router IP traffic Export (RITE)
+
+* Exports packets to VLAN or LAN
+* Only for traffic received on multiple WAN/LAN ints simultaneously (if device being targeted in DoS)
+* Used for IDS
+* Directly copies packets to MAC of IDS
+* Forwards inbound by default, can do outbound or both
+* Filter on number of forwarded packets (ACL, one-in-n packets)
+
+```
+ip traffic-export profile export-this
+ int Fa0/0
+ bidirectional
+ mac-address 0018.0fad.df30
+ incoming sample one-in-every 30
+ outgoing sample one-in-every 100
+
+int Fa0/0
+ ip traffic-export apply export-this
+```
+
+# EEM
+
+Detects events ,provides notification of events
+
+Detectors supported:
+
+* SNMP Objects
+* Matching syslog patterns
+* Monitoring coutners
+* Timers (time-of-day, cron, watchdog etc)
+* Screening CLI for match
+* Hardware insertion/remvoal
+* Routing table change
+* IP SLA/netflow events
+* Generic On-Line Diagnostic (GOLD) events
+* Many others
+
+Actions: -
+
+* Generated prioritized syslog messages
+* Reload router
+* Switch to secondary sup
+* Generate SNMP traps
+* Set/modify counter
+* Execute IOS command
+* Send email
+* Request system info
+* Read or set track object
+* IOS CLI or TCL
+
+```
+event manager applet CLI-cp-run-st
+ event cli pattern "wr" sync yes
+ action 1.0 syslog msg "$_cli_msg Command Execited"
+ set 2.0 _exit_status 1
+ end
+```
+
+# Implementing Remote Monitoring
+
+* Configure thresholds based on SNMP objects (monitor device performance)
+* Alarms and events
+* Event is number, user config'd threshold for SNMP object
+* Events track (CPU, errors etc), set rising and falling thresholds
+* Tell RMON alarm to trigger when thresholds cross
+* Alarm is what it does (logs event, sends trap)
+* For trap, need SNMP community of server
+* Event and alarm number locally signficiant
+
+In the below: -
+
+* Error counters
+* For first, RMON looks for delta rise in 60 seconds, falling five errors per 60 seconds
+* In second, thresholds absolute
+
+```
+rmon event 1 log trap public description Fa0.0RisingErrors owner config
+rmon event 2 log trap public description Fa0.0FallingErrors owner config
+rmon event 3 log trap public description Se0.0RisingErrors owner config
+rmon event 4 log trap public description Se0.0FallingErrors owner config
+
+rmon alarm 11 ifInerrors.1 60 delta rising-threshold 10 1 falling-threshold 5 2 owner config
+
+rmon alarm 20 ifInerrors.2 60 absolute rising-threshold 20 3 falling-threshold 10 4 owner config
+```
+
+**show rmon alarm**
+**show rmon event**
