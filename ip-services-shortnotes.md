@@ -210,6 +210,14 @@ Versions: -
 
 Messages: -
 
-|Name|Initial Version|Message Type|Typically sent by|Description|
+|Name|Initial Version|Reply With|Typically sent by|Description|
 |----|---------------|------------|-----------------|-----------|
 |Get|1|Response|Manager|Request for single variables value|
+|GetNext|1|Response|Manager|Requests next single mib leaf variable in tree|
+|GetBulk|2|Response|Manager|Multiple MIB variables in one request, helps with routing tabels etc|
+|Response|1|Is a response|Any|Responds to Get and Set reqs|
+|Set|1|Response|Manager|Set variable to a value|
+|Trap|1|Response|Agent|Unsolicited info to manager, no reply|
+|Inform|1|Response|Manager|Used between managers|
+
+Successive GetNexts or GetBulks with MIB walk
