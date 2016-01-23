@@ -172,4 +172,47 @@ Change template with **sdm prefer template**
 
 1. Plan strategy
 2. Activate new protocol, higher AD than current
-3. 
+3. Verify IGP adj and db
+4. Deactivate current IGP
+5. Remove temporary new IGP settings
+
+## Migration Strategy
+
+* Plan boundaries/areas
+* Plan summarization, stub, externals
+* What parts of network have it
+* If current is link state, migrate areas first, backbone last
+
+## Acivate New
+
+If new is DV, must have redistribution from current IGP
+
+## Verify adj and database
+
+In DV, only advertises route if in routing table by same protocol. DV shouldn't advertise route it isn't using
+
+## Deactivating current IGP
+
+**passive-interface default**
+
+Also protocol shutdown
+
+## Remove new IGP settings
+
+* AD
+* Redistribution
+* EIGRP drops if AD changed
+
+## DV in IGP migration
+
+Redist from current to DV means router can advertise from other protocol to nieghbours. MEans neighbour has full list of networks from its neighbours.
+
+Key observations: -
+
+* Prefixes from original when both original and new running
+* Prefixes from new when only new running
+* All routers know about all prefixes
+* Traffic routed by original when destined to running both
+* Routed by new when running both but destined for new
+* Routed by new when destined for one running new only
+* Routed by new when router only running new, until it reaches a router running both, then routed by original 
