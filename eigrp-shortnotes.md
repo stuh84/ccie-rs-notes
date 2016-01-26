@@ -315,4 +315,57 @@ Above accomplished by: -
  * ASN
  * Primary addresses for relationships
  * Same subnet
+* Timers dont need to match
+* Hello 5s default
+* Hello 60 on NBMA
+* **ip hello-interval eigrp 1**
+* Hold time default 3 times hello
+* Changing hello doesn't change hold
+* If hold expires, neighbour unreachable, dual informed
+* **ip hold-time eigrp 1**
+
+**Adjacency Process**
+
+|Direction|Packet|State Following|
+|---------|------|---------------|
+|R1 to R2 | Hello | R2 puts R1 to pending|
+|R2 to R1|Hello|R1 puts R2 to Pending (expedited allowing quick discovery)|
+|R2 to R1|Null Update with INit, Seq=x|R1 declares Init rx'd from R2|
+|R1 to R2|Null update with with Init, Seq=y, Ack=x|Init and Ack rx'd from R1, R2 puts R1 to up|
+|R2 to R1|Ack, Ack=y|Ack rx'd from R2, R1 puts R2 to up|
+|R1 <-> R2| Database Sync|Uses updates and Acks|
+
+**Pending State**
+* Doesn't send/accept EIGRP messages with routing info until connectivity in place
+* Packets exchanged unreliable, other than reliable with Init flag
+* Null update - no routing info
+
+**show ip eigrp neighbours**
+* H (handle) - Internal number assigned to neighbours, independent of addressing
+* Address and Interface
+* Hold - From value adv'd by neighbour
+* Uptime
+* SRTT
+* RTO
+* Q Cnt - Enqueued reliable packets, must be zero in stable network. Non-zero normal during db sync or convergence
+* Seq number - Seq number of last reliable packet from neighbour
+
+# Diffusing Update Algorithm
+
+* Convergence algorithm
+* Replaces Bellman-Ford algorithm in other DV
+* Avoids loops by performing distributed SPF computation
+* Maintains freedom from loops during calculation
+
+# Topology Table
+
+Stores routing info
+
+* Prefix of known dests (address and mask)
+* FD of network
+* Address of neighbouring router that advertised network (with egress int)
+* Metrics of networks adv'd by neigh, plus resulting metric of path to dest
+* State of dest network
+* Other info (flags, type origin etc)
+* Populated with connected networks (local or redist'd)
 
