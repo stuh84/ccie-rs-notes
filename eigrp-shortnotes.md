@@ -368,4 +368,232 @@ Stores routing info
 * State of dest network
 * Other info (flags, type origin etc)
 * Populated with connected networks (local or redist'd)
+* Also pop'd with contents of Update, Query, Reply, SIA-Query and SIA-Reply
+* Neighbour with least cost path to destination AND loop free path chosen from topology table
+
+Networks active or passive
+* Passive - Shortest Path found
+* Active - Searching for shortest path
+
+Active for query packets being sent out
+* Can't modify routing entry while queries still not replies to (i.e. no removing or changing next hop)
+* Route loop free in this state
+* If neighbour providing least-cost path can't guarantee loop free path, route in active state
+
+**show ip eigrp topology all-links** - All routes, including FC check failures
+
+# Computed, Reported and FDs, and FCs
+
+**RD**
+* Best distance of particular neighbour to destination
+
+**CD**
+* Total metric to destination via particular neighbour
+
+(CD/RD) in **show ip eigrp topology**
+
+**FD**
+* Record of lowest distance known since last active to passive for route
+* Not always equal to best CD
+* Can only decrease (if CD goes below FD) or remain at current value (if current CD rises but route is passive)
+* Never advertised
+* Compared with RD, FD has at some point been at a certain value, meaning RD must be lower (nearer to destination)
+* Shouldn't be a case if using a path with lower RD than FD that a routing loop forms
+
+If current distance lower, packets never pass back to this router. Any neighbour closer to destination thatn this route has been since last time destination became Passive, cannot form loop. 
+
+RD < FD = Feasibility Condition
+
+FC not necessary for loop freedom. Means every neighbour meeting FC provides loop free path, but not every loop-free path satisfies FC>
+
+All passing FC are FSs. Least CD to dest are Successors (can be multiple)
+
+# Local and Diffusing Computations in EIGRP
+
+* TC = Distance to network change or new neighbour online for that network
+* Detected by receiving Update, Query, SIA-Query or SIA-Reply with info about network
+* Also detected by local int metric change
+* Neighbour going down processed with CD/RD through neighbour set to inifnity
+
+If new shortest path passes FC, FS, performs following: -
+
+1. FS providing least CD is successor
+2. If CD over new Successor < current FD, FD updated to new CD
+3. Routing table update
+4. If current distance to dest changed, update packet to neighbours
+
+Above is local, info in topology table. Passive state through this.
+
+If no FS after TC, could be a loop. Diffusing computation started: -
+1. Route locked, can't be removed or change next hop
+2. FD set to current CD through current Successor. If router needs to advertise its distance while in Active state, uses current CD through successor
+3. Network placed in Active state, queries sent to neighbours
+
+Queries contain network and routers current CD to it
+
+Each neighbour updates topology table using distance in query, re-evaluates its Successors and FS. After, neighbour till has own FS or Successor with least-cost loop-free path, or needs to change current Successor.
+
+If neighbour still has succesor, reply sent back with current distance. Route doesnt go active on this neighbour. Diff Comp boundary here.
+
+If no successor, diff comp, own queries, own CD through current successor. Query through this part of network.
+
+One destination active, must wait on replies. Once replies received, FC check skipped, and back to passive. FD becomes CD by selected neighbour. If router Active by receiving queries, it replies to queries, with distance it now has. Otherwise only updates
+
+Main info in Update, Query, Reply and both SIAs is senders current distance. Computation started only if this changes things for a neighbour.
+
+During successor failure: -
+* When EIGRP detects change, records in topology table, updates RD and CD of neighbour advertising change, or influenced by (link metric)
+* Identify least CD through other neighbours (that have updated CDs themselves)
+* After least CD through neighbour found, verify neighbour meets FC and is FS. If yes, successor. If not, active.
+
+# DUAL FSM
+
+One passive, four active states
+
+* A0 - Local origin with distance increase
+* A1 - Local origin
+* A2 - Multiple origins
+* A3 - Successor origins
+
+Rules are: -
+
+* Passive if distance change means neighbour providing least CD doesnt meet FC
+* If successor query fails to meet FC, enter A3. Queries sent, wait for replies. If no further distance increase while waiting, get last reply, go active. Change FD, choose new S
+* If distance change from update, int metric, or neighbour loss, and neighbour distance fails FC, A1. Queries sent. If no distance increase or queries from S, back to passive
+* If during A3 or A1, distance increase from something other than successors query, another change occured. As this cant be adv out, other routers may not know. State from A3 to A2, or A1 to A0. When last reply arrives, check least CD passes DC, using FD set when active. If FC passes, passive again. If not, return to previous state, another diff comp
+* If during A1 or A0, a query from successor rx'd, another changed occured. State changes to A2, proceeds as above
+
+Query origin flag stores active state
+
+# Stuck in Active
+
+* Single misbehaving router can cause to be SIA, never ending diff comp
+ * CPU overload
+ * Packet loss
+ * Congestion
+ * Large topology/complex, lot of prefixes from single node failure
+
+Default active timer is 3 minutes, can be between 1 and 65535, **timers active-time**. If replies not received, router is SIA. Adj torn down to unresponsive neighbours. Diff Comp takes responds to be infinite metric.
+
+SIA-Query and Reply exist to combat above aggressive behaviour
+* If neighbour has no response within half of active, SIA-Query sent
+* SIA-Reply can say "waiting on replies" or "Done, this is metric"
+* Reply send immediately
+* Resets active timer
+* Three SIA-Qs sent, each after half active. If Comp not finished by end plus one half of active, adj tear down
+
+Two routers can't wait on each others reply. If during active, router gets another query for dest, reply sent back immediately with same distance in own query.
+
+To avoid SIA, limit query propagation depth, and networks dependent on a link (passive int, route filtering, stub etc)
+
+# EIGRP Named Mode
+
+* IOS 15.0(1)M
+* Old method is classic/as mode
+* Named mode preferred
+* Features go into named mode now
+* Anything not in config mode ignored if named mode instance used
+
+Three blocks
+* AF section - Specifics AF for this EIGRP instance (ASN in here)
+* Per-AF interface - Located inside AF, per interface or sub interface. Can set default settings. Optional section
+* Per-af-topology - Multi-Topology-Routing, always present even if no support for MTR
+
+```
+router eigrp DAVE
+ address-family ipv4 unicast autonomous-system 1
+  af-interface default
+   hello-interval 1
+   hold-time 3
+  exit-af-interface
+  af-interface Loopback0
+   passive-interface
+  topology base
+   maximum-paths 6
+   variance 4
+  exit-af-topology
+  network 10.0.0.1 0.0.0.0
+  network 10.255.255.1 0.0.0.0
+ exit address-family
+ address-family ipv6 unicast autonomous-system 1
+  af-interface default
+   shutdown
+  exit-af-interface
+  af-interface Loopback0
+   no shutdown
+  exit-af-interface
+  af-interface Fa0/0
+   no shutdown
+  exit-af-interface
+  topology base
+   timers active-time 1
+  exit-af-topology
+ exit-address-family
+```
+
+* Multiple named processes
+* Named not in messages
+* Each process only a single instance for an AF
+* Two or more processes cannot run same AF with same ASN
+* Default for v6 is on all interfaces, even link-local only
+
+## Address Family Section
+
+* af-interface
+* default - Set command to defaults
+* eigrp - AF family commands
+* help - interactive help
+* maximum-prefix
+* metric - metric and parameters for advertisement
+* neighbour - static
+* network
+* shutdown - shutdown af
+* timers
+* topology
+
+## Per-AF-Interface section
+
+* add-paths - Advertise add paths
+* authentication - Configure auth
+* bandwidth-percent - Set percentage of bandwidth limit
+* bfd
+* damepning-change - Percent interface metric must change to update
+* dampening-interval - Time in seconds to check int metric
+* default
+* hello-interval
+* hold-time
+* next-hop-self
+* passive-interface
+* shutdown
+* split-horizon
+* summary-address
+
+## Per-AF-Topology section
+
+* In MTr, defines subset of routers and links for a separate topology
+* Entire network is base topology
+* Any additional are class-specific, subset of base
+* Each carries class of traffic and indepdnent of NLRI (maintains separate routing tables and FIBs)
+* Can segregate different kinds of traffic or indepdnent v4 and v6 topologies
+
+Commands are: -
+* auto-summary
+* default
+* default-information - Distribution of default info
+* default-metric - Set metric of redistributed routes
+* distance - Defines AD
+* distribute-list
+* eigrp
+* maximum-paths
+* metric
+* offset-list 
+* redistribute
+* snmp
+* summary-metric
+* timers
+* traffic-share
+* variance
+
+**show eigrp address-family ipv4/ipv6** rather than show ip eigrp or show ipv6 eigrp (both work, but new features wont be shown)
+
 
