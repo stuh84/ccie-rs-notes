@@ -270,3 +270,49 @@ List/array (vector) of Internal and External Route TLVs, is DV nature of EIGRP
 * Unicast and reliable
 * SIA-Q Opcode 10
 * SIA-R Opcode 11
+
+## RTP
+
+* Reliable delivery of EIGRP packets
+* All reliable packets have non-zero seq
+* Seq number - global value, maintained per EIGRP process, incremented whenever packet originated by instance
+* Acks sent in response to reliable packets, ack is rx'd seq
+* Ack can piggyback onto own reliable packets
+* If acks not rx'd in time, retransmits as unicast to unresponsive neighbour
+
+### Conditional Receive
+
+* Partitions neighbours on multiaccess interface
+* Two groups, well behaved (ack messages) and lagging (failed to ack at least 1 reliable packet)
+* Flag set on multicast packets for routers that ack'd all so far
+
+Above accomplished by: -
+
+* Hello sent with Sequence TLV and Next'Mcast Sequence TLV (sequenced hello)
+* Next M'Cast - Upcoming seq number of next reliable message
+* Sequence TLV - List of lagging neighbours, tells these to ignore next message
+* Neighbour puts itself in CR mode
+* Sending router sends next m'cast with CR flag
+* Routers in CR mode process as normal
+* Routers not ignore it
+* Routers not in CR-mode can catch up
+
+* Ack wait time specified by multicast flow timer
+* Time between subsequent unicast specified by RTO (Retransmission timeout)
+* Flow and TRO calc'd for each neighbour from SRTT
+* Smooth Round Trip Time - average elapsed time between reliable packet and ack, in ms
+
+# Router Adjacencies
+
+* Dynamic by default
+* Can be static
+* 224.0.0.10 or FF02::A
+* Static usually on NBMA/none m'cast media (FR)
+* Static stops m'cast on interface neighbour is reachable
+* Following need to match
+ * Auth
+ * K-Values
+ * ASN
+ * Primary addresses for relationships
+ * Same subnet
+
