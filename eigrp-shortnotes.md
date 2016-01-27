@@ -596,4 +596,362 @@ Commands are: -
 
 **show eigrp address-family ipv4/ipv6** rather than show ip eigrp or show ipv6 eigrp (both work, but new features wont be shown)
 
+# Additional and Advanced EIGRP features
 
+## Router ID
+
+* 4-byte
+* Represents instance
+* Each AF own router-id
+* Multiple processes and AF families can use same RID
+* Was used to prevent loops in redistribution (identified originating router)
+* Now also includes internal routes
+* **eigrp router-id**
+ * If not set, highest IP of non-shut loopback
+ * Highest ip on non-shut ints
+* Not changed until EIGRP processed removed, RID configured or config'd RID removed
+* Not allowed: 0.0.0.0 and 255.255.255.255
+* RID change drops neighbours
+* Only message if two routers with same RID, "Ignore Route, dup routerid" in **showe eigrp address-family ipv4 events**
+* Seen in **show eigrp protocols** and **show ip protocols**
+
+## Unequal cost load balancing
+
+* Must be FS for present for loop free paths
+* Paths through FS can be installed along with best
+* **variance** command, says how many times worse than best path FS can be
+* CD via successor < CD via Feasible Successor < V x CD successor
+* If it does, will be installed. V of 1 means none
+* Traffic amount is Highest Installed Metric / Path Metric
+* Unequal cost paths installed into routing table count towards max parallel paths to destination, **maximum-paths**
+
+## Add-Path
+
+* Allows hub to advertise multiple equal-cost routes to destination
+* Might require max paths command
+* Split horizon must be disabled on tunnel
+* Variance must be set to 1
+* No **next-hop-self**, original NH needed
+* **no-ecmp-mode** available on above
+ * Above deactivates internal optimization
+ * Walks over all equal-cost paths to dest in topology table
+ * Any of these routes successors should be reachable over interface on which route is going to be readv
+ * **next-hop-self** only applies to successor, not additional entires
+
+## Stub Routing
+
+* Configured on spokes
+* TLV in hello of Spoke
+* Does not propagate EIGRP routes to its neighbours, unless a **leak-map**
+* Router can never be FS for remote networks (i.e. transit router)
+* Advertises subset of own networks
+ * set with **eigrp stub**
+ * summary, connected, static, redistributed, receive-only
+* Neighbours that see stub never send query to stub
+
+Stub handles queries as such: -
+* Originating query packets - Same
+* Processing queries - If any of stub networks above or leak-map, not modded
+ * If known by stub but not allowed to advertise, processes with infinite distance
+
+* Might receive queries from old IOS versions (no stub TLV support)
+* Also if multiple stubs on common segment
+* If stub router in common seg needs to send query, also send to other stubs
+* Above supports multihomed branches
+* Means can use other routers uplink if own uplink fails
+
+In mixed scenarios
+* Non-stub sent as unicast to nonstub, or conditional receive
+* Above depends on number of nonstubs
+
+* Protect against suboptimal routing (low speed as transit)
+* Limits query propagation
+
+Config: -
+* eigrp stub connected - Connected routers adv
+* eigrp stub leak-map - Dynamic prefixes in leak
+* eigrp stub receive-only - Receive-only neighbour
+* eigrp stub redistributed - allow redist
+* eigrp stub static - static routes
+* eigrp stub summary - Allow summries
+
+For receive only, must have static routes, or NAT/PAT to reach networks behind it
+
+**leak-map**
+* Route map with ACLs or prefix lists
+* Useful for multihomed
+
+**Connected and static**
+* Still need redistribute/network commands to do this
+* Summary allows summary on interfaces
+
+* Connected and summary assumed
+
+**show ip protocols** shows if router a stub
+**show ip eigrp neighbors detail** - show stub neighbours
+
+Changing stub features drops adj
+
+* Stub router has no impact on what hub advertises to spokes, still sends full
+
+## Route SUmmarization
+
+* Query boundary
+* Queries inside summarized network propagate as normal
+* If particular component route not in neighbours table, immediate reply with infinite distance
+* Auto and manual
+* Auto based on classful routing (major network as subnet on interface*
+* Auto does nto apply to externals unless internal belongs to same major network as external
+* In 15.0(1)M, aut-summ off by default
+
+**Manual**
+* Supernetting
+* Can be a default route
+* Overlapping summaries allowed
+ * All advertised if components exist
+
+**Classic Mode**
+**ip summary-address eigrp asn address netmask [distance] [leak-map name]**
+
+**Named Mode**
+Under af-interface
+**summary-address address netmask [ leak-map name]**
+
+* Auto adds null0 into table
+* AD of 5 for summary
+* Above can cause issues, change distance in classic as shown
+* In named, under topology base, **summary-metric address netmask distance admin-distance**
+* CLassic way removed in recent releases
+
+AD of 255 stops route going into table, still advertised (Older IOS). Newew don't advertise summary either.
+
+* By default, lowest metric component is summary metric
+* Changes if component routes change/new component is lower etc
+* Use above command to define it
+
+## Passive Interfaces
+
+* Stops sending EIGRP packets on int
+* In classic, **passive-interface** or **passive-interface default**
+* In named, **passive-interface** under af-interface, or under af-interface default section
+
+## Graceful Shutdown
+
+* Can advertise being deactivated on an interface, AF or entire process
+* Uses "goodbye" message (hello with K's of 255)
+* classic only allows graceful shutdown of process in v6
+* For v4, sent when shutting down ints, passive, or network statements
+* In named, can be in router eigrp mode, under AF, or af-interface
+
+## Authentication
+
+* MD5 since start
+* SHA-2 since 15.1(2)S and 15.2(1)T
+* MD5 in classic or named
+* SHA in named only
+* One key chain minimum, key strings, and optionally validity timers
+* Key-id and string must match
+* SHA can configure password in interface config without key chains
+* Above means transition of keys difficult
+
+**Classic Commands**
+
+**ip authentication mode eigrp**
+**ip authentication key-chain eigrp**
+
+**Named**
+
+*Af-interface*
+**authentication mode**
+**authentication key-chain**
+Can be under default section
+
+```
+
+key chain EIGRPKeys
+ key 1
+  key-string DAVE
+
+router eigrp CCIE
+ address-family ipv4 autonomous-system 1
+  af-interface default
+   authentication mode md5
+   authentication key-chain EIGRPKeys
+  af-interface Fa0/0
+   authentication-mode hmac-sha-256 DAVESHA # DAVESHA is not the key used, it is a password set
+   authentication key-chain EIGRPKeys
+  af-interface F0/1
+   authentication mode hmac-sha-256 DAVEISPW
+   no authentication key-chain # Above password is now used as the key
+  af-interface Se1/0
+   no authentication mode
+```
+
+**show eigrp address-family ipv4 int detail** - Show used keychain
+
+**send-lifetime** and **accept-lifetime** exists
+
+Lowest key-id used for sending, received depends on ID. Can implement new keys like so: -
+
+1. Add new key with higher ID to all routers
+2. Change old-keys send-lifetime to past
+3. Remove old key
+
+## Default routing in EIGRP
+
+* No dedicated command
+* Redistribution or summarization
+* Used to support **ip default9network** (flagging candidate route), network had to be classful and advertised in EIGRP
+* If static route configured with only egress interface, IOS treats route as directly connected
+ * Means 0.0.0.0 network command would be pulled in 
+ * No effect on anything with next-hop set
+ * above means all ints in eigrp
+
+## Split Horizon
+
+* Split horizon with poisoned reverse (advertises learned network out towards successor with inifnite metric)
+* Can be activated for multipoint ints. Preferred to send default route to all spokes, but if not feasible, disable as such
+ * **no { ip | ipv6 } split-horizon eigrp** - Classic
+ * no split-horizon - Af interface
+
+# EIGRP over ToP
+
+* OTP for overlay multipooint VPNS between CEs running EIGRP
+* Done using LISP
+
+**LISP**
+* Decouples host location from identity
+* Mantain identity at all costs
+* Mapping service maps identity to location
+* TUnnel encaps packets between hosts
+* End host identities in new packet destined to address representing end host locations
+* LOcation of host could be different from locaiton (eg IPv6 and IPv4 reachable)
+
+* LISP EID (Endpoint ID) never changes, v4 or v6 address
+* Outside address of router in front of EIDs is RLOC (Routing Locator)
+* Routers perform ingress/egress tunnelling of traffic between sites
+* Also makes EID-to-RLOC registration and resolution
+
+* LISP has control and data plane
+* Control plane: Registraiton protocol and procedures; allows routers to register EIDs responsible for, along with RLOCs
+* Data plane: tunnel encap
+
+* For OTP, EIGRP replaces LISP control plane
+* EIGRP routers running OTP target sessions, with IPs provided by SP as RLOCs
+* Routes are EIDs
+* LISP data plane reused in OTP
+* Similar to DMVPN, SP never sees inside tunnel, but differences
+ * No MP GRE in DMVPN
+ * OTP uses LISP UDP encap for data plane, with native EIGRP
+ * No tunnel int connfig required
+ * Only mandatory static config, specify remote static neighbour
+ * OTP can be protected yb GETVPN
+ * NHRP in DMVPN in mappings, OTP uses EIGRP itself
+
+```
+R1
+
+int lisp0
+ bandwidth 1000000
+
+int Gi0/0
+ ip address 192.0.2.31 255.255.255.0
+
+ip route 0.0.0.0 0.0.0.0 192.0.2.2
+
+router eigrp CCIE
+ address-family ipv4 unicast autonomous-system 64512
+ topology base
+ exit-af-topology
+ neighbor 198.51.100.62 Gi0/0 remote 100 lisp-encap
+  network 10.0.1.0 0.0.0.255
+  network 192.0.2.31 0.0.0.0
+
+R2
+
+int lisp0
+ bandwidth 1000000
+
+int Gi0/0
+ ip address 198.51.100.52 255.255.255.0
+
+ip route 0.0.0.0 0.0.0.0 198.51.100.1
+
+router eigrp CCIE
+ address-family ipv4 unicast autonomous-system 64512
+ topology base
+ exit-af-topology
+ neighbor 192.0.2.31 Gi0/0 remote 100 lisp-encap
+  network 10.0.2.0 0.0.0.255
+  network 198.51.100.52 0.0.0.0
+```
+
+Seen as lisp0 for outgoing interface routes
+
+**show ipv4 addres ipv4 nei** - Neighbour on other side
+
+**show ip cef X.X.X.X/X internal** - Shows lisp encap effect 
+
+OTP neighbours can be built into a route reflector, config as such
+
+```
+int Lisp0
+ bandwidth 1000000
+
+int Gi0/0
+ ip address 192.0.2.31 255.255.255.0
+
+ip route 0.0.0.0 0.0.0.0 192.0.2.2
+
+router eigrp CCIE
+ address-family ipv4 unicast autonomous-system 64512
+  af-interface Gi0/0
+   no next-hop-self
+   no split-horizon
+  exit-af-interface
+  topology base
+  exit-af-topology
+  remote-neighbors Source Gi0/0 unicast-listen lisp-encap
+  network 10.0.1.1 0.0.0.0
+  network 192.0.2.31 0.0.0.0
+```
+
+Remote neighbours allows ACL to limit permitted RR clients
+
+# EIGRP Logging and reporting
+
+* Configed in router config mode
+* If named mode used, commands in af family section
+* **eigrp event-log size**
+* **eigrp event-logging**
+* **eigrp log-neighbor-changes**
+* **eigrp log-neighbour-warnings**
+* Event logging on by default, default size 500 lines
+* ** show eigrp address-family {ipv4 | ipv6 events} **
+* Size between 0-443604
+* Neighbour warnings on by default, default 10 second intervals
+
+# Route Filtering
+
+* Can be on inbound and outbound updates at any interface or af instance
+* Use distribute list command (topology base for named, eigrp process for classic)
+* Use ACLs, prefix lists and route-maps with distribute0list
+
+* Does not directly limit query propagation
+* Dist list out - All outoing updates, queries, replies and SIA messages, correct metric unless denied (in which case infinite)
+* Dist list in - Permitted as normal, denied ignored for Updates, Replies and SIA replies. Queries and SIA-Queries not influenced
+
+# Offset lists
+
+* Adds metrics
+* Adds to delay metric
+* Any route not matched unchanged
+* In or out, and match interface
+
+# Clearing routing rtable
+
+* Clear routes, but will keep in eigrp topology table
+* No messages sent after command
+
+* **clear eigrp address-family { ipv4 | ipv6 } neighbors** clears all neighbourships
+* Using soft on above does graceful restart, resyncs topology tables only
