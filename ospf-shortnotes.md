@@ -303,5 +303,197 @@ Benefits of areas: -
 |8|External Attributes|Created by ASBRs, during BGP-to-OSPF redist, preserves BGP attributes, not in IOS|
 |9-11|Opaque|Future expansion, Type 10 is MPLS TE, Type 9 link local, type 10 area local, type 11, as flooded|
 
+* Transit network - Two or more router neighbours and elected a DR so traffic can transit from one to another. P2P treated as a combination of P2P and stub on this link
+* Stub - Subnet where no neighbour relationships formed
+
+### Type 1 and 2
+
+**Type 1**
+* From router
+* Describes router, ints in that area
+* List of neighbouring routers in that area
+* Defined by LSID, equal to RID
+
+**Type 2**
+* Transit subnet which DR elected
+* LSID is DRs int IP on subnet
+* None for networks without DR
+
+* SPF from 1s and 2s creates topological graph of network
+* Calculates best and chooses best routes
+
+* Without DR, type 1 has enough info
+* With DR< type 2 models subnet as node in SPF model
+* Type 2 sometimes known as pseudonode
+* Type 2 has RIDs of all neighbours of DR
+* With Type 1s for each router in subnet, accurate network pictrue
+
+**show ip ospf database** - Link ID should be LSID. LSID is unique ID for LSA, Link ID an entry in type 1s
+
+* For down networks, type 1s and 2s reoriginated, disconnected ntwork removed from LSA, or entire LSA aged (3600s and flood)
+
+### Type 3 and Inter-Area Costs
+
+* ABRs dont forward Type 1s and 2s between areas
+* Type 3s into one area
+* Type 3 describes interarea dest with subnet, mask and ABRs cost to subnet
+* Cost calc'd from router as ABR cost plus type 3 cost
+* **show ip ospf database summary** - type 3 cost
+* **show ip ospf border-routers** - ABR costs
+* If network disappears, ABR removes type 3 for the networks
+* If another type 3 doesn't exist in routers DBs, removed from routing tables
+* Can update metric to 16777215
+* Premature aging preferred (RFC2328)
+
+* Partial calc not dependent on summary routes
+* Type 3s flooded only within area into which they were originated by ABRs, dont cross area boundaries
+* ABRs compute internal OSPF routing table for backbone area using all types of LSAs
+* New type three for each intra and intra-area route, originated and flooded to nonbackbone areas
+
+* ABRs use only type 3s received over backbone area in SPF calc
+ * Non-backbone stored in LSDB, flooded within nonbackbone area
+* When ABR creates and floods type 3s, only intra-area routes from non-backbones advertised into backbone
+* Inter-and-intra from backbone
+
+### LSA Type 4 and 5s, E1s and E2s
+
+* E1 - External and internal metric
+* E2 - External only (IOS Default)
+
+* When external route injected, type 5 for subnet by ASBR
+* Lists metric and type
+* Flooded through all regular areas
+* Processed depending on metric
+* If E1, total cost is cost to ABSR plus E1 in LSA
+* If multiple paths to same E1, least cost used
+* E2 only external costs, internval viewed as negligible costs
+* E1 > E2 routes
+* Both need cost to ASBR
+ * In same area, least-cost path with type 1s and 2s
+ * Type 4 in other areas (contains ABSRs RID and ABR metric to reach it)
+* Type 4 only flooded in other areas
+
+### OSPF Design with LSA types
+
+* Areas cut down SPF calc
+* Link flaps less effect
+* Summary routes reduce type 3s and 5s
+
+### Stubby Areas
+
+* Not all areas need to know about each external
+* Packets must still go through an ABR in many cases, and no ASBR in current area
+* Stubbys inject default route into area, so ABR defualt at all times
+* If area is stubby, stops type 4 and 5s into area
+* Every internal router in stubby area ignores type 5s, no origination itself
+* ABR automatically injects default as type 3
+* Visibility of intra-area and inter-area networks in stubby not affected
+* Types 4s not mentioned, but useless anyway if no type 5s
+
+Four types exist: -
+
+|Type|Allowed LSAs|Ignored LSAs|Generated LSAs|
+|----|------------|------------|--------------|
+|Stubby|Type 3s|4 and 5|None|
+|Totally Stubby|None|Type 3, 4 and 5|None|
+|NSSA|Type 3s|4 and 5|7s|
+|NSSA-TS|None|3, 4 and 5s|7s|
+
+* TSs only allowed type 3 default
+* NSSA for externals
+
+```
+area area-id nssa
+area area-id nssa no-summary
+area area-id stub
+area area-id stub no-summary
+```
+
+* NSSAs for potential local breakout etc
+* Type 7 changed to type 5 at ABR
+* ABR with highest RID performs translation
+* NSSA does not have default auto gen'd, need to do **area area-id nssa default-information-originate**
+* NSSA-TS not required
+* N1 and N2
+
+## OSPF Path Choices, not cost
+
+### Best Type
+
+1. Intra-area
+2. Inter-area
+3. E1/N1
+4. E2/N2
+
+### ABR loop Prevention
+
+* DV between areas
+* Type 3s only have subnet, metric and ABR
+* Split Horizon applied for many LSA types
+ * Makes sure info from LSA not advertised into one nonbackbone area and back into backbone
+
+* No inter-area routes from nonbackbone can go to backbone, means ABR does not go via non-backbone to reach backbone
+
+
+# OSPF Config
+
+
+```
+R1
+ 
+int Fa0/0
+ ip address 10.1.1.1 255.255.255.0
+ ip ospf dead-interval minimal hello-multiplier 4
+
+router ospf 1
+ area 3 nssa no-summary
+ area 4 stub no-summary
+ area 5 stub 
+ network 10.1.0.0 0.0.255.255 area 0
+ network 10.3.0.0 0.0.255.255 area 3
+ network 10.4.0.0 0.0.255.255 area 4
+ network 10.5.0.0 0.0.255.255 area 5
+
+R2
+
+int Fa0/0
+ ip address 10.1.1.2 255.255.255.0
+ ip ospf dead-interval minimal hello-multiplier 4
+ ip ospf 2 area 0
+
+router ospf 2
+ area 5 stub
+
+R3
+
+router ospf 1
+ area 3 nssa no-summary
+ network 10.0.0.0 0.255.255.255 area 3
+
+R4
+
+router ospf 1
+ area 4 stub no-summary
+ network 10.0.0.0 0.255.255.255 area 4
+
+S1
+
+int vlan 1 
+ ip address 10.1.1.3 255.255.255.0
+ ip ospf dead-interval minimal hello-multiplier 4
+
+router ospf 1
+ router-id 7.7.7.7
+ network 10.1.0.0 0.0.255.255 area 0
+
+S2
+
+int vlan 1
+ ip address 10.1.1.4 255.255.255.0
+ ip ospf dead-interval minimal hello-multiplier 4
+ ip ospf priority 254
+```
+
+R3 and R4 don't require no summary, but better to have anyway for consistency.
 
 
