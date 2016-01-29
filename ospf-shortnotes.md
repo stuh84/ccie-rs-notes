@@ -236,3 +236,72 @@ If different neighbours reachable over different ints, following applies
 * If no priority, all neighbours contacted imediately
 * If set to 0 in **ip ospf priority** command, neighbour statements removed from config
 
+# SPF Calculation
+
+* LSAs have info for math equivalent of figure of network
+* Routers, links, costs and admin status
+* SPF constructs least cost paths to all possible destination
+* Costs summed, least total cost taken
+* Cost per interface
+* Outgoing int cost used
+
+## SSO
+
+Following true in steady state: -
+
+* Hellos send per hello interval
+* Hellos in dead time, or neighbour failed
+* LSAs reflooded (with seq increment), LSRefresh interval (per LSA), default 30m
+* MaxAge for LSA is 60m
+
+# OSPF Design and LSAs
+
+## OSPF Design Terms
+
+**ABRs**
+* Between areas
+* Must connect to area 0
+* Cisco says must connect for it to be be an ABR 
+
+
+**ASBR**
+* External routes
+
+* Separate LSDB for each area
+* Per-area LSDB isolated
+* Only ABR can translate/carry info between
+* SPF ran in each LSDB separately
+
+Benefits of areas: -
+* Smaller per-area LSDB
+* Faster SPF calc
+* Link failure only partial SPF calc in other areas
+* Summarize/filter at ABRs and ASBRs
+* LSDB srhinks as type 3 LSAs (sparser than type 1 and 2s)
+
+## Path selection
+
+* Intra > Inter > External
+* Ignore type 3 LSAs in nonbackbone area during SPF calc
+ * Prevents ABR going into nonbackbone and back in to backbone elsewhere
+
+## LSA types
+
+* Only modified by original router
+* Processed and flooded with in flooding scope
+* Never blocked, dropped (unless lifetime expires or changed)
+
+|Type|Name|Description|
+|----|----|-----------|
+|1|Router|One per router per area, lists RID and all int IPs in area, represents stubs, flooded within area|
+|2|Network|One per transit network, DR originated, represents subnets/router ints connected to subnet, within area|
+|3|Net Summary|By ABR, represents networks present in on area, defines subnets in area and cost, nothing else. Flooded only within its area of origin, reoriginated on ABRs|
+|4|ABSR Summary|Like type 3, host routed to each ASBR, within area of origin, reoriginated on ABRs|
+|5|AS External|Created by ASBRs for external routes, flooded to all regular areas|
+|6|Group Membership|For MOSPF, no IOS support|
+|7|NSSA External|By ASBRs inside NSSA, flooded in area, converted to type 5 by ABRSs|
+|8|External Attributes|Created by ASBRs, during BGP-to-OSPF redist, preserves BGP attributes, not in IOS|
+|9-11|Opaque|Future expansion, Type 10 is MPLS TE, Type 9 link local, type 10 area local, type 11, as flooded|
+
+
+
