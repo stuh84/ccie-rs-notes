@@ -689,3 +689,344 @@ int Gi0/0
 ## Tuning OSPF Performance
 
 ### SPF scheduling with SPF throttling
+
+* Used if links flapping
+* Cisco default runs SPF 5 seconds after updated LSA
+* If LSA arrives after above run, subsequent delay grows by up to 10 seconds
+* Controlled by SPF throttling
+ * Defines variable wait interval between two SPF runs
+
+* spf-start - Initial wait before SPF
+* spf-hold - Wait between SPF runs
+* spf-max-wait - Max time between two SPF runs, and time network must be stabl for wait interval to be set back to spf start and hold to its preconfig'd value
+
+* If network stable in last-spf hold, but not spf-max-wait, wait returns to spf start, but subsequent wait twice previous spf-hold
+
+* **timers throttle spf spf-start spf-hold spf-max**, all in ms
+* Current values in **show ip ospf**
+* **debug ip ospf spf statistic** - verifies current and next wait intervals
+
+### Tuning LSA origination with LSA throttling
+
+* Rate at which an LSA might be reoriginated by its router
+* After LSA not updated for more than max-interval, created and flooded after star-interval
+* Next wait interval set to hold-interval
+* If same LSA updated within wait since last reorigination, origination/flooding postponed until wait expires
+* After above, then creating and flooding, hold doubled
+* If no updated in next wait, wait back to start. Hold still at higher value
+* If same LSA updated after current wait but before max, reorigination and flooding done based on start, but next wait twice hold
+* Hold reset to configured value if LSA not required to be updated for entire max-interval
+
+Defaults
+* Start - 0 (LSA updates immediately)
+* Hold and max - 5000ms (subsequent origination 5 seconds, no progressive increase)
+
+* Set with **timers throttle lsa all start-interval hold-interval max-interval** - ms
+* Show above in **show ip ospf**
+* Can ignore an LSA upon arrival if too often, **timers lsa arrival millisconds**
+* Ignored if same LSA in that time
+* Default arival is 1000ms
+* Should be smaller than inital hold in LSA throttling, otherwise neighbour sending sooner than would be accepted
+
+### Incremental ISPF
+
+* Only affected part of SPF tree recalc'd
+* Further away change occurs, bigger effect
+* **ispf** command
+* Can be enabled per router, not required through entire network
+
+### OSPFv2 Prefix Suppression
+
+* Most hosts located in nontransit networks
+* Most devices have loopbacks for mgmt
+* Maintaing transit link prefixes in this state is pointless
+* RFC 6860 hides/suppresses transit link prefixes
+* Suppresses prefixes, not links themselves
+* Transit links are connections be routers, must be advrtised
+
+Type 1 for router and its adjacencies, four possible link types in type 1
+* P2P to another router - Transit link pointing to other routers RID, no addresing info, not influenced by prefix suppression
+* Link to transit network - Points to transit networks DR IP, no addressing info like network max, only DR IP, not influenced
+* Stub network - All stubs in type 1 corresponding to prefixes used on P2Ps can be supressed
+* Virtual link - Virtual transit p2p, virtual adj, no address info, no suppression
+
+* Omits stub network entires for p2p ints to other routers
+
+* For type 2s, IP Prefix computed by bitswise AND of LSID of LSA and netmask in payload. 
+* RFC 6860 says settings netmask to 255.255.255.255
+* Routers supporting it see signal of LSA containing no prefix info
+* Routers not implementing RFC install host route to DR
+
+* **prefix-suppression** - works on all ints except loopbacks
+* **ip ospf-prefix-suppression [disable]** - per int
+
+### Stub Router Config
+
+* RFC 3137, obsoleted by 6987
+* IOS 12.2(4)T and up
+* Router temporarily or permanently not a transit
+* Advertises own type ones with infinite metrics for all trasnit type adj (p2p, transit links, VLs)
+* Stub network adj advertised with real int metrics
+* Can be set to advertise for a time period, or completion of BGP convergence
+
+**max-metric router-lsa on-startup announce-time** - Seconds
+
+**max-metric router-lsa on-start wait-for-bgp** - Waits until BGP signals convergence or 10m pass
+
+### Graceful Restart
+
+* RFC 3623
+* For platforms forwarding packets while process stops
+* NSF before GR (NSF Cisco proprietary)
+* Router is in GR mode, its neighbours in heper mode
+* Lack of hellos for grace period ignored
+* Considers fully adjacent, reports as so in type 1/2 LSAs
+* Still seen as DR
+* Every IOS router can be helper if supported
+* Routers with specific hardware required for GR
+* NSF-Aware (helpers), NSF-Capable (helpers and GR)
+* NSF capable are 6500, 7200, 7300, 7600, 10000, 12000, ASR and CRS
+
+Can continue forwarding without loops assuming following: -
+* Routers hardware can go while line cards use last FIB version
+* OSPF processes must let neighbours know with grace LSA (type 9)
+ * Contains estimated restart duration (grace period)
+ * Restart reason
+ * IP of router
+* LSDB stable during restart
+* All neighbours support and config'd as helper
+* Restarts within grace
+* Fully adj neighbours must operate in helper
+
+* CEF used uring restart
+* OSPF rebuild RIBs
+* Cisco and IET awareness enabled by default in IOS
+* **nsf [ cisco | ietf ] helper disable
+
+### Graceful Shutdown
+
+Using shutdown command in process
+* Drops all OSPF adj
+* Flush all LSAs (3600 max age)
+* Hellos sent with DR/BDR to 0.0.0.0, emtpy neighbour list (adj fall to init)
+* Stop OSPF packets
+
+Per int: -
+* Drop Adj on int
+* Flood LSAs that no longer include that int and adj through other ints (if any)
+Hellos as above
+* Stop OSPF packets on that int
+* **ip ospf shutdown**
+
+# OSPFv3
+
+* RFC 5340
+
+## Diffs between v2 and v3
+
+* Interface commands, eg **ipv6 ospf 1 area 2**
+ * **ipv6 router ospf 1**
+* Advertises multiple networks on interface - All advertised if on int
+* RID must be set - Cannot automatically choose RID if no v4 set (if v4 set, same rules as v2)
+* Flooding scope
+ * Link-local scope - Link LSA
+ * Area scope - Flooed through area (Router, Network, Inter-Area Prefix, Inter-Area Router, Intra-Area Prefix)
+ * AS Scope - AS External
+* Multiple instances per link
+* v3 uses links, v2 networks
+* Source packets from link-local, VLs from globally coped v6
+* Auth - v6 covers rather than protocol
+* Networks in LSAs - prefix, prefix length, rather than address, mask
+
+## LSA Types
+
+|Type|Name|Description|Flooding Scope|
+|----|----|-----------|--------------|
+|1|Router|Routers and links to neighbors within area|Area|
+|2|Network|From DR, represents multiaccess transit network and connections to member routers|Area|
+|3|Inter-Area Prefix|From ABRs, networks in other areas|Area|
+|4|Inter-Area Router|From ABRs, shows ASBRs in other areas|Area|
+|5|AS External|From ASBR, networks from other protocols|AS|
+|7|NSSA|ASBR in NSSA, as per 5|Area|
+|8|Link|Link local address and prefix of router to all other routers on link and option info, sent only if more than one router on link|Link|
+|9|Intra-Area-Prefix|List of v6 prefixes with transit network (points to Network LSA) or v6 prefixes with a router (points to Router LSA)|Area|
+
+* Type 1 and Type 2 have have prefix info placed into Type 8s and 9s instead
+* Type 1 and 2 only carry topology adj
+* Type 9 has prefixes of a router, carried with area scope
+* With link local next hops, each router advertises a type 8 out particular int
+* Only type 1 and 2 updates trigger SPF
+* Type 8 and 9 originated and flooded, no SPF run
+
+## v3 in NBMA
+
+* Per interface **ipv6 ospf neighbor**
+* Other end must be link-local, other addresses rejected
+* Other v2 rules apply
+
+## v3 over FR
+
+* No InverseARP
+* All v6/DLCI mappings manual
+* Mappings needed for link-local and global
+* Link-local need broadcast keyword (although in NB or P2MP NB)
+
+```
+int Se0/0
+ frame-relay map ipv6 FE80::1 708 broadcast
+ frame-relay map 2001:207::1 08
+```
+
+Change link local address with **ipv6 address ADDRESS link-local**
+
+## Enabling and Configuring v3
+
+```
+ipv6 unicast-routing
+ipv6 cef
+
+int lo0
+ ipv6 address 3001:0:3::/64 eui-64
+ ipv6 ospf 1 area 704
+
+int lo1
+ ip address 10.3.3.6 255.255.255.0
+
+int lo2
+ ipv6 address 3001:0:3:2::/64 eui-64
+ ipv6 ospf network point-to-point
+ ipv6 ospf 1 area 0
+
+int Fa0/0
+ ipv6 address 2001:0:3::/64 eui-64
+ ipv6 ospf 1 area 704
+
+int Se0/0
+ bandwidth 128
+ encapsulation frame-relay
+ ipv6 address 2001::/64 eui-64
+ ipv6 ospf neighbor FE80::2
+ frame-relay map ipv6 FE80::1 807 broadcast
+ frame-relay map ipv6 2001:207::1 807
+
+ipv6 router ospf 1
+```
+
+Verify with **show ipv6 interface brief**, **show ipv6 protocols**, **show ipv6 ospf interface**, **show ipv6 router ospf**
+
+* Redistributing same as v2
+
+## v3 Auth and Encryption
+
+* 12.3(4)T - AH supported
+* 12.4(9)T - ESP supporte
+
+* Enable AH with **ipv6 ospf authentication**
+* Encryption with **ipv6 ospf encryption**
+* Cannot have both on one int, ESP does both auth and encryp
+* Supply slected crypto algorithms for has and encryp and keys
+* Defines how packets proected by IPSec
+* SA identified by SPI (Security Parameter Index)
+* Each v3 packet proected by IPSec carries SPI number of SA to protect it
+* RX router uses SPI to identify SA
+
+```
+int Fa0/0
+ ipv6 ospf auth ipsec spi 1000 sha1 KEY
+
+int Se1/0
+ ipv6 ospf encryption ipsec spi 1001 esp aes-cbc 128 KEY
+
+ipv6 router ospf 1
+ area 1 authenticaiton ipsec spi 1002 md5 KEY
+ area 2 encryption ipsec spi 1003 esp 3des KEY md5 KEY
+```
+
+* Can use authentication trailer, configured like v2 extended auth
+* 15.4(2)T support
+* Refer to **ospf v3 authentication key-chain*
+* IPSec not compatible with above
+* Does not provide encryption
+
+* Per link auth and encryp preffered as more layers of security
+* Auth trailer an AH for auth
+* ESP for auth and encrypt
+* Same SPI number, AH/ESP mode, algoritihm and keys required
+* For auth trailer, same crypto algorithms, key IDs and strings
+
+## Address Family Support
+
+* Prefix info in new LSA types
+* AF support possible
+* Instance IDs split into different categories for different AF families
+
+* 0 - Base v6 unicast
+* 1-31 - v6 unicast with local policy
+* 32 - Base v6 multicast
+* 33-63 - v6 multicast local policy
+* 64 - v4 unicast base
+* 65-95 - v4 unicast local policy
+* 96 - v4 multicast base
+* 97-127 - v4 multicast local policy
+* 128-191 - Unassigned
+* 192-255 - Reserved for private use
+
+* Use base instance ID if not config'd
+* Packet exchange, LSA flood/originate, SPF computation and routing tables independent of one another
+* Options v3 bitfield in v3 Hellos, DBDs and LSAs AF-bit efined
+* Set if sending router supports AF extension and this instance isn't v6 unicast
+* If packet seen in AF instance with no AF bit, implies other side doesnt support AFs
+* Router drops packets, never establishes adj
+* Encap of v3 packets stays same (v6)
+* Interface must have v6 addressing on to allow AF operation
+* v3 packets for v4 still in v6
+* VLs only for v6 unicast AFs
+
+Config as such: -
+
+```
+int lo0
+ ipv6 address 2001:DB8:0:FFFF::1/128
+ ip address 10.255.255.1 255.255.255.255
+ ospfv3 1 ipv6 area 0 
+ ospfv3 1 ipv4 area 0
+
+int Fa0/0
+ ipv6 address 2001:DB8:1:1::1/64
+ ip address 10.1.1.1 255.255.255.0
+ ospfv3 network point-to-point
+ ospfv3 1 ipv6 area 1
+ ospfv3 1 ipv4 area 1
+
+int Se0/0/0
+ ipv6 address 2001:DB8:0:1::1/64
+ ip address 10.0.1.1 255.255.255.0
+ ospfv3 hello-interval 1
+ ospfv3 1 ipv6 area 0
+ ospfv3 1 ipv4 area 0
+
+router ospfv3 1
+ address-family ipv4
+  area 1 range 10.1.0.0 255.255.0.0
+ address-family ipv6
+  area 1 range 2001:DB8:1::/48
+```
+
+## Prefix Suppression
+
+* Omits suppressed transit link prefixes from type 8s and 9s
+* Per process with **prefix suppression**
+* Per int with **ipv6 ospf prefix-suppression** or **ospfv3 prefix-suppression**
+* Can be done per AF, or outside (global process)
+
+## Graceful Shutdown
+
+Modified process
+* Hellos with router priority of 0 (drops DR/BDR if applicable)
+* Stops accepting hellos
+* Flushs all originated LSAs except type 1s
+* Flood type 1s with links in that LSA with cost 65535
+* After dead interval expires and neighbours dead, flush own type 1
+* STop ospfv3 packets
+
+More gradual, over declared dead interval
