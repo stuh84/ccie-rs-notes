@@ -496,4 +496,196 @@ int vlan 1
 
 R3 and R4 don't require no summary, but better to have anyway for consistency.
 
+## OSPF Costs and Clearing OSPF Process
 
+* **clear ip ospf process** - All processes
+* **log-adjacency-changes detail** - Messages at each state change
+* Default cost is 100,000 kbps / bandwidth
+* **ip ospf cost** on interface
+* **auto-cost reference-bandwidth**, mbps units, default 100
+* **neighbor X.X.X.X cost value** - Per neighbour
+
+Order chosen
+* Neighbor cost (only valid on P2MP-NB
+* IP ospf cost
+* Default based on int bandwidth
+* auto-cost
+
+Int costs in IOS kbps, auto-cost mbps
+
+## Network command alternative
+
+* From 12.3(11)T
+* **ip ospf 1 area area-id** on interface
+* All secondaries matched rather than explicit with network commands
+* Avoid with **secondaries none** keyword
+
+## OSPF Filtering
+
+* Filtering routes, not LSAs - **distribute list**, filters routes from SPF to routing table, doesn't affect LSDB
+* ABR type 3s - Prevent ABR creating a type 3
+* **area range no-advertise** - Prevents particular type 3 from ABR
+
+### Distribute list
+
+Following rules: -
+
+* Inbound direction - Results of SPF, not prior
+* Outbound - Only on redistribtued and ASBR
+* Inbound does not filter inbound LSAs
+* If incoming interface added, checks as if it were outgoing int of route
+
+
+```
+router ospf 1
+ distribute-list prefix prefix-list-1 in Serial 0.2
+
+router ospf 1
+ distribute-list route-map rm-1 in
+
+route-map rm-1 deny 10
+ match ip address 48
+ match ip route-source 51 # Specify route source, eg permit 2.2.2.2
+```
+
+Earlier IOS allowed replacing with next best route, 12.4 and beyond don't ad the route to routing table
+
+### ABR LSA type 3 filtering
+
+* Identical LSDBs in each area still met
+* Filters at point type 3s created (ABR)
+* **area 1 filter-list prefix name { in | out }
+
+* in - Prefixes going into area
+* out - Oposite of above
+
+### Area Range
+
+Route summarization at ABR, but with **not-advertise** keyword, meaning no summary either
+
+## Virtual Link
+
+* Connects areas to backbone that go via none backbone
+* Targetted OSPF session
+* Not a tunnel for data
+* Makes two remote routers within single area fully adjacent, syncs LSDBs
+* VL goes throug regular area only
+* Packets forwarded based on true dest address, meaning transit area must know all networks
+
+```
+R1
+
+router ospf 1
+ area 3 virtual-link 3.3.3.3
+
+R3
+
+router ospf 1
+ area 3 virtual-link 1.1.1.1
+```
+
+**show ip ospf virtual-links**
+
+## Classic OSPF auth
+
+* None, clear text and MD5
+* SHA-1 exists, but different config
+
+Rules: -
+* Type 0 (none), type 1 (clear text), type 2 (MD5)
+* **ip ospf authentication** - Enables on int
+* Default type 0
+* Default changed with **area authentication** router ospf command
+* Keys always under int
+* Multiple MD5 keys with different key IDs allowed per int
+
+* Sent packets always use key added as last one to interface
+* Rx'd use key ID
+* Key migration phgase if different key number seen than this router
+ * Sends all packets as many times as keys config'd, each with different key
+ * Phase ends when all neighbours use same key
+* Key rollover procedure, not available for clear text
+
+**None**
+
+```
+int Fa0/0
+ ip ospf authenticaiton null
+```
+
+**Clear text**
+
+```
+int fa0/0
+ ip ospf authentication
+ ip ospf authentication-key key-value
+```
+
+**MD5**
+
+```
+int Fa0/0
+ ip ospf authentication message-digest
+ ip ospf message-digest-key key-number md5 key-value
+```
+
+* **area authentication** required prior to IOS 12.0
+* No area auth means type 0 default
+* **area 0 authentication** - type 1
+* **area 0 authenticaiton message-digest** - type 2
+
+* Keys in clear text unless using **service password-encryption**
+
+Virtual links: -
+
+```
+area 0 virtual-link x.x.x.x authentication null
+area 0 virtual-link x.x.x.x authentication
+area 0 virtual-link x.x.x.x authenticaiton message-digest
+```
+
+## Extended Crypto Auth
+
+* IOS 15.4(1)T up
+* SHA-HMAC supported
+* Key chains used
+* Crypto algorithm per key
+* Must use **cryptographic-algorithm** command, otherwise not used
+* **send-lifetime** and **accept-lifetime** possible
+* Highest ID used if multiple
+* Key rollover not used, migration like EIGRP instead
+* Enabled per int with **ip ospf authentication key-chain key-chain-name**
+* Virtual links - **area 0 virtual-link x.x.x.x key-chain key-chain-name**
+* MD5 auth supported like this, ignores **ip ospf message-digest-key** if config'd already
+
+```
+key chain ospf 
+ key 1
+  cryptographic-algorithm hmac-sha-1/256/384/512/md5
+  key-string DAVE
+
+int Gi0/0
+ ip ospf authentication key-chain ospf
+```
+
+**show ip ospf interface** - Shows crypto auth enabled
+
+## Protecting routers with TTL security check
+
+* Avoids unicast OSPF packets across network
+* Besides virtual/sham links, comms should be direct, ttl shouldn't decrement
+* **ip ospf ttl-security** - per int
+* **ttl-scurity all-interface** - per process
+* **ip ospf ttl-security disable** - per int
+* All have **hops hop-count** for relaxing TTL security check. 
+ * Stting to 100 would say from 255 to 155
+ * 254 means effectively disabling check
+ * Above useful for migration to TTL security
+* Value of 1 is default
+* IOS based routers decrement TTL of received OSPF packets before handing to OSPF process
+
+* Enable on VLs or SLs with **area virtual-link ttl-security hops** and **area sham-link ttl-security hops** - Hops mandatory
+
+## Tuning OSPF Performance
+
+### SPF scheduling with SPF throttling
