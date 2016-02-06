@@ -297,6 +297,7 @@ longer period
 
 # Comparison of v1, v2 and v3
 
+Feature comparison
 
 |Feature|v1|v2|v3|
 |-------|-----|----|00--|
