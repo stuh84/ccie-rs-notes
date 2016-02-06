@@ -82,6 +82,7 @@ Requirements for multicast are as follows: -
  * Identical for Ethernet and FDDI
 
 Steps to do so are: -
+
 1. Convert IP to binary
 2. Replace first 4 bits 1110 of IP with 01-00-5E
 3. Next 5 bits of binary IP with one binary 0
@@ -235,16 +236,11 @@ longer period
 |Timer|Usage|Default Value|
 |-----|-----|-------------|
 |Query Interval|Period between general queries sent by a router|60s|
-|Query Response Interval|MRT for hosts to response to periodic general
-queries|10s, can be between 0.1 to 25.5|
-|Group Membership Interval|Time where if router gets no IGMP report, no
-members on subnet|260s|
-|Other Querier Present Interval|Querier considered dead if no queries
-seen|255s|
-|Last member query interval|MRT in GS queries and time period between
-two consecutive GS queries by same group|1s|
-|v1 Router Present Timeout|If v2 host does not see v1 Query, v1 host
-says no v1 routers present, sends v2 messages|400s|
+|Query Response Interval|MRT for hosts to response to periodic general queries|10s, can be between 0.1 to 25.5|
+|Group Membership Interval|Time where if router gets no IGMP report, no members on subnet|260s|
+|Other Querier Present Interval|Querier considered dead if no queries seen|255s|
+|Last member query interval|MRT in GS queries and time period between two consecutive GS queries by same group|1s|
+|v1 Router Present Timeout|If v2 host does not see v1 Query, v1 host says no v1 routers present, sends v2 messages|400s|
 
 # IGMP version 3
 
@@ -301,15 +297,15 @@ says no v1 routers present, sends v2 messages|400s|
 
 # Comparison of v1, v2 and v3
 
+
 |Feature|v1|v2|v3|
-|-------|--|--|--|
+|-------|-----|----|00--|
 |First Octet for Query|0x11|0x11|0x11|
 |Group Addr for General Query|0.0.0.0|0.0.0.0|0.0.0.0|
 |D-Addr for General Query|224.0.0.1|224.0.0.1|224.0.0.1|
 |Dflt Query Interval|60s|125s|125s|
 |First Octet for report|0x12|0x16|0x22|
-|Group addr for report|Joining M'cast Group addr|as per v1|Joining m'cast
-group addr and source address|
+|Group addr for report|Joining M'cast Group addr|as per v1|Joining m'cast group addr and source address|
 |D-Addr for report|Joining m'cast group addr|as v1|224.0.0.22|
 |Report Suppression|Yes|yes|no|
 |Can MRT be configured|No, 10s fixed|Yes, 0 to 25.5s|Yes, 0 to 53m|
@@ -321,6 +317,7 @@ group addr and source address|
 |Rules for electing querier|None, depends on M'cast Routing
 Protocol|Lowest IP on subnet|as per v2|
 |Compatauble with other versions|No|Yes, v1|Yes, v1 and v2|
+
 
 # LAN Multicast Optimizations
 
