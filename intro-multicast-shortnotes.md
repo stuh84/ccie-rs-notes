@@ -315,8 +315,7 @@ Feature comparison
 |Can router send GS Query|No|Yes|yes|
 |Can host send source and GS reports|No|No|yes|
 |Can router send source and GS queries|No|No|Yes|
-|Rules for electing querier|None, depends on M'cast Routing
-Protocol|Lowest IP on subnet|as per v2|
+|Rules for electing querier|None, depends on M'cast Routing Protocol|Lowest IP on subnet|as per v2|
 |Compatauble with other versions|No|Yes, v1|Yes, v1 and v2|
 
 
