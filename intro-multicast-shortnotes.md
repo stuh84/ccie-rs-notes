@@ -300,7 +300,7 @@ longer period
 Feature comparison
 
 |Feature|v1|v2|v3|
-|-------|-----|----|00--|
+|-------|-----|----|----|
 |First Octet for Query|0x11|0x11|0x11|
 |Group Addr for General Query|0.0.0.0|0.0.0.0|0.0.0.0|
 |D-Addr for General Query|224.0.0.1|224.0.0.1|224.0.0.1|
