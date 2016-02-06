@@ -247,3 +247,264 @@ two consecutive GS queries by same group|1s|
 says no v1 routers present, sends v2 messages|400s|
 
 # IGMP version 3
+
+* RFC 3376
+* Major protocol revision
+* Last-hop routers needed updating
+* Host OSs modified, apps rewritten
+
+* In v2, router forwards traffic to group regardless of source
+* Malicious traffic/useless traffic (music streaming) could be sent to
+  all members
+
+* v3 hosts can specify source
+ * Source Specific Multicast (SSM)
+* Host indicates interest in receiving packets from certain sources, or
+  to avoid certain sources, for group
+
+* Membership report prcoess is
+ * v3 report sent to 224.0.0.22 (IANA v3 membership report address)
+ * Message type 0x22
+ * Has SOURCE-INCLUDE <addresses>
+* v3 compataible with v1 and v2
+
+* Cisco designed URL Rendezvous Discovery and IGMP v3 lite for new
+  features in v2 until v3 available in apps and OS
+
+# v1 and v2 Interop
+
+## v2 hosts and v1 routers
+
+* v2 report message type 0x16, v1 says invalid message and ignores
+* v2 hosts looks at MRT of periodic general IGMP query
+ * Field 0 in v1
+ * Non-zero in v2
+* Marks interface as v1 int, stops sending v2 messages
+* 400s v1 router present timer started on v1 query
+ * If expires, send v2 messages
+
+## v1 hosts and v2 routers
+
+* v1 reports (0x12)
+* IGMP hosts responds normally to v2 queries as very similar format to
+  v1s (except second octet)
+* If v2 hosts on same subnet, send v2 reports
+ * v1 dont understand these, no report suppression
+* v2 report would receive both v1 report and v2 in response to general
+  query
+* v2 router knows v1 on LAN
+* Ignores leaves and GS
+* Router suspends optimizations that reduce leave latency
+* Ignored until IGMPv1-Host-Present-Countdown timer expires
+* 2236 says routers sets if receivng v1 report
+* Equal to group membership interval (180s in v1, 260 in v2)
+
+# Comparison of v1, v2 and v3
+
+|Feature|v1|v2|v3|
+|-------|--|--|--|
+|First Octet for Query|0x11|0x11|0x11|
+|Group Addr for General Query|0.0.0.0|0.0.0.0|0.0.0.0|
+|D-Addr for General Query|224.0.0.1|224.0.0.1|224.0.0.1|
+|Dflt Query Interval|60s|125s|125s|
+|First Octet for report|0x12|0x16|0x22|
+|Group addr for report|Joining M'cast Group addr|as per v1|Joining m'cast
+group addr and source address|
+|D-Addr for report|Joining m'cast group addr|as v1|224.0.0.22|
+|Report Suppression|Yes|yes|no|
+|Can MRT be configured|No, 10s fixed|Yes, 0 to 25.5s|Yes, 0 to 53m|
+|Can host send leave|No|Yes|yes|
+|Leave destination|None|224.0.0.2|224.0.0.22|
+|Can router send GS Query|No|Yes|yes|
+|Can host send source and GS reports|No|No|yes|
+|Can router send source and GS queries|No|No|Yes|
+|Rules for electing querier|None, depends on M'cast Routing
+Protocol|Lowest IP on subnet|as per v2|
+|Compatauble with other versions|No|Yes, v1|Yes, v1 and v2|
+
+# LAN Multicast Optimizations
+
+## Cisco Group Management Protocol
+
+* IGMP at L3
+* Switches don't understand IGMP messages
+* CGMP - L2 protocol
+* Config'd on routers and switches
+* Permits router to communicate L2 info learned from IGMP to switches
+* Routers knows MACs of hosts and groups they're in
+* With CGMP messages, switches can dynamically modify CAM entires
+* Routers produce CGMP messages, switches listen
+* Enable both ends of link
+* L3 switches are routers for CGMP
+* Server as CGMP servers only
+* On these switches, CGMP can be enabled only on L3 ints that connect to
+  L2 switches
+
+```
+int Fa0/1
+ ip cgmp
+```
+
+* D-Addr of 0100.0CDD.DDDD
+* Flooded through all ports, all switches get messages
+* Useful info in messages is one or more pairds of MACs
+ * GDA (Group Destination Address)
+ * USA (Unicast Source Address)
+
+1. CGMP router connected to switch, CGMP Join sent, GDA of 0, USA of own
+MAC. CGMP knows m'cast router on port. Message repeat every 60s. CGMP
+can be sent, same USA and GDA as Join.
+2. IGMP join from host. Router examines L2 dest and source MAC of join.
+   CGMP Join generated with M'cast MAC of group (GDA field) MAC of host
+(USA field)
+3. When switches receive above, search CAM for port with USA MAC.
+   Creates new CAM entry (or uses existing if alreayd created) for
+m'cast MAC in GDA. Adds port with host MAC in USA, forwards traffic to
+port
+4. IGMP Leave from host. Sees USA and group left. CGMP leave with
+   multicast MAC for GDA of group, and unicast MAC in USA
+5. Switch gets CGMP leave, looks for port with host MAC, removes from
+   CAM entry for m'cast MAC in GDA
+
+* IGMP messages optimized, switches know groups they go to (IGMP reports
+  for example)
+
+Combination of GDA and USA in CGMP messages mean: -
+
+|Type|GDA|USA|Meaning|
+|Join|Group MAC|Host MAC|Add USA port to group|
+|Leave|Group MAC|Host MAC|Delete USA port from Group|
+|Join|Zero|Router MAC|Learn of CGMP router on port|
+|Leave|Zero|Router MAC|Release CGMP router port|
+|Leave|Group MAC|Zero|Deletes group from CAM|
+|Leave|Zero|Zero|Deletes all groups from CAM|
+
+* Last message used with things like **clear ip cgmp**
+
+## IGMP Snooping
+
+* Multivendor
+* Switch examines IGMP conversations
+* Learns locations of routers and group members
+
+General Process: -
+1. Detects whether multiple routers on same subnet. Following messages
+   determine which ports routers connected: -
+ * IGMP general query - 01-00-5E-00-00-01
+ * OSPF message - 01-00-5E-00-00-05 and 01-00-5E-00-00-06
+ * PIMv1 and HSRP hellos - 01-00-5E-00-00-02
+ * PIMv2 hellos - 01-00-5E-00-00-0D
+ * DVMRP probes - 01-00-5E-00-00-04
+ * When above seen, router port added to port list of all GDAs in that
+   VLAN
+2. When switch gets IGMP report, looks at GDA, creates CAM for GDA. Adds
+   port to it and router port.
+3. When IGMP leave, removes port from group in CAM. If last nonrouter
+   port, switch discards leave, otherwise sends to router
+
+* Requires hardware filtering support in switch (so can see IGMP reports
+  during standard mc'ast traffic)
+* Forwarding should be done in forwarding ASICs
+* IGMP snooping enabled by default on 3560s and most other L3 switches
+
+```
+ip igmp snooping
+no ip igmp snooping vlan 20
+ip igmp snooping last-member-query-interval 500
+ip igmp snooping vlan 22 immediate-leave
+```
+
+* Less efficient in maintaing group info
+* General queries sent to 224.0.0.1 and forwarded through all ports in
+  VLAN
+* Hosts do not see each others IGMP reports (breaks report suppression)
+ * Switch sends only one IGMP report per group to router
+
+# Router-Port Group Manage Protocol
+
+* L2 protocol
+* Enables router to tell switch which groups it wants traffic for
+* Helps routers reduce overhead when attached to highspeed LAN backbones
+* Enable on interface **ip rgmp**
+* Not compatible with CGMP
+ * When enabled, CGMP silently disabled, and vice versa
+* RFC 3488 exists, but is Cisco Proprietary
+* Works with IGMP snooping
+* IGMP helps switches control distribution of m'cast traffic for hosts,
+  but not for routers
+
+Four messages, sent to m'cast IP of 224.0.0.25: -
+* When RGMP enabled, RGMP hello every 30s. When Switch receives it,
+  stops forwarding all m'cast traffic on port
+* To receive specific groups, RGMP Join G (G is m'cast address)
+* RGMP Leave G to stop traffic
+* RGMP Bye when RGMP disabled. Switch sends all IP m'cast traffic on
+  port again
+
+# IGMP Filtering
+
+* Filters on SVI, port, or per-port per-VLAN basis
+* Filters IGMP traffic
+* Manages IGMP snooping
+* Defines whether IGMP packet discarded or allowed
+* with v1 and v2, entire packet discarded
+* v3, packet rewritten, removing message elements denied
+* Can restrict on groups that can be joined on port, maximum numbr of
+  groups on interface, and IGMP version
+* User policy applied to L3 SVI, L2 port or VLAN on trunk
+ * L2 port can be access or trunk
+* Only works if snooping enabled
+* Three filters
+ * IGMP group and channel access control
+ * several IGMP groups and channels limit
+ * IGMP minimum version
+
+# IGMP Proxy
+
+* Enables Unidirectional link routing environment to join m'cast group
+  from upstream network
+ * Not directly connected to downstream router
+
+* Enables hosts to jon group source
+ * Situations like internet gapped, no direct message
+
+1. User 1 sends IGMP membership report to join group G
+2. Router sends PIM Join to RP
+3. RP receives PIM join, forwards entry for Group G on LAN
+4. RP looks at mroute, proxies IGMP membership report to upstream UDL
+   device
+5. Proxy creates and mantains forwarding entry on UDL
+
+**Config on upstream**
+```
+int Gi0/0
+ ip address 10.1.1.1 255.255.255.0
+ ip pim dense-mode
+
+int Gi1/0/0
+ ip address 10.2.1.1 255.255.255.0
+ ip igmp unidirectional-link
+ ip pim dense-mode
+```
+
+**Config on downstream**
+
+```
+ip pim rp-address 10.5.1.1 5
+access-list 5 permit 239.0.0.0 0.255.255.255
+
+int lo0
+ ip address 10.7.1.1 255.255.255.0
+ ip pim dense-mode
+ ip igmp help-address udl ethernet 0
+ ip igmp proxy-service
+
+int Gi0/0/0
+ ip address 10.2.1.2 255.255.255.0
+ ip pim dense-mode ip igmp unidirectional-link
+
+int Gi1/0/0
+ ip address 10.5.1.1 255.255.255.0
+ ip pim sparse-mode
+ ip igmp mroute-proxy lo0
+```
