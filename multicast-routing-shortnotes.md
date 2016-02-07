@@ -217,3 +217,420 @@ Diffs between PIM-DM and DVMRP
 ## Operation of PIM-SM
 
 * Assumes no hosts want packet until they ask for it
+* PIM Joins for routers to request multicast traffic
+* Must continually send Joins, otherwise go into prune state
+
+## Similarities between PIM DM and SM
+
+* Same RPF check mechanism
+* PIM ND through Hellos
+* Recalc of RPF int when routing table changes
+* Election of DR on MA network
+* Prune overrides
+* Asserts elect designated forwarder
+
+### Sources Sending Packets to RP
+
+Steps for initial forwarding of m'cast with SM are: -
+
+1. Source ends packets to RP
+2. RP Sends m'cast packets to all routers/hosts registered to group.
+This is a shared tree
+
+* Routers with local hosts that IGMP Join for group can oin
+  source-specific tree for S,G SPT
+* Routers on same subnet as source register with RP
+* RP accepts registration only if RP knows routers or hosts that need to
+rx multicasts
+
+```
+ip multicast-routing
+ip pim sparse-mode
+ip pim rp-address X.X.X.X
+```
+
+Source Registratio process when RP has no requests for group: -
+
+1. Host sends m'casts to group address, router receives m'cast as it
+connects to same LAN
+2. Router sends PIM register to RP
+3. RP sends unicast Register-Stop message back, nothing wants traffic
+
+* PIM Register encaps first m'cast packet
+* Would be forwarded if anything in group
+* Source host might keep sending m'casts
+* When Register-Stop received, 1m Register-Suppression timer
+* 5 seconds before timer expires, Router sends another Register, with
+Null-Register bit set, without any encap'd m'cast packet
+
+One of two things hapen
+1. Another register-stop, resets register suppression
+2. Doesn't reply, timer expires, R1 sends encap'd m'cast packets in PIM
+register messages (i.e. host/router requires this traffic)
+
+### Joining Shared Tree
+
+* Root-Path Tree - alternate name
+* Tree with RP as root
+* Defines links m'cast forwards to reach routers
+* One tree for each m'cast active group
+* After m'cast packets sent by source to RP, RP forwards to group with
+  RPT
+* RPT created with PIM-SM router's PIM Joins to RP
+* Sent under two conditions
+ * PIM Join on any interface other than route to RP
+ * IGMP Membership report from host on DC subnet
+* Notation of (\*,G), any source to group
+
+### Completion of Source Registration Process
+
+* If register for an active group received, no Register-Stop
+* De-encaps m'cast packet and forwards
+
+Process goes through: -
+* Host sends m'cast to group
+* Router encaps m'cast inside Register to RP
+* RP de-encaps and sends towards receiving hosts
+* RP joins SPT for source of host and group, PIM-SM Join for group S,G
+  to source
+* When source router receives Join, forwards group traffic to RP
+ * Still sending Register mesages with encap'd m'cast packets
+* RP sends unicast Register-Stop to source router, stops above
+
+### Shared Distribution Tree
+
+* Traffic from RP to routers/hosts called shared distribution tree/root
+  path tree
+* If network has multiple sources, traffic to RP, then RPT to receives
+* S flag in **show ip mroute** indicates PIM-SM
+
+### Steady-State Operation by continuing to Send Joins
+
+* Periodic, otherwise interface back to pruned
+* Routers forward if Downstrem routers still send joins, or DC hosts
+  respond to IGMP Querys with IGMP reports for group
+* PIM-SM joins every 60s to upstream
+* Prune timer 3m default, resets on join
+* Must receive at lest one IGMP Report/Join in response to General
+  Query, otherwise stops group traffic on int
+
+### Analysing Mroute table
+
+* If incoming int null, indicates router is root of tree (i.e. an RP)
+* RPF neighbour listed as 0.0.0.0 for same reason
+* T is entry for an SPT, source listed at beginning of same line
+ * Incoming int shown
+ * RPF neighbour shown
+* RP uses SPT to pull traffic from source to itself, shared trees down
+  to PIM-SM routers
+
+### Shortest-Path Tree Switchover
+
+* Any router can buil SPT between router and source DR, avoids
+  inefficient path
+* After router starts receiving group traffic over SPT, Prune to
+  upstream of shared tree
+* RFC 2362 says initiate switch to SP-tree after significant number of
+  packets from a source. No defined amount
+* Cisco switch from SPT to source-specific SPT after first packet from
+  shared tree
+* Change above with **ip pim spt-threshold** *rate*
+ * Can be on any router in group
+ * Rate is kbps, once over, switches
+* RPT joined first as router doesnt know source
+* After one packet, learns IP for source and switch to S,G
+
+Process is: -
+
+1. Source sends m'cast packet to first hop router
+2. First hop forwards to RP
+3. RP forwards to another router in shared tree, other router may have
+better unicast path than its RPF int to RP
+4. PIM-SM Join out preferred interface to first hop router, for SPT it
+is for, travels hop-by-hop to source DR
+5. First hop router places another int in forwarding for SPT
+
+* J flag (Join) says traffic switched from RPT to SPT
+* S,G entry forwarding to group
+
+### Pruning from Shared Tree
+
+* After above, RPT may no longer be required
+* Stop RP from forwarding traffic with PIM-SM Prune to RP
+* Prune references S,G SPT, identifying source
+* This means "stop forwarding from lited source to listed group down
+  RPT"
+
+## Dynamically finding RPs and using Redundant RPs
+
+* Unicast RP, statically config'd **ip pim rp-address** *address*
+* Cisco-prop Auto-RP, designates RP, advertises ip to all PIM-SM routers
+* Standard BSR, designates RP, advertises
+
+Redunant RPs possible with: -
+* Anycast RP with Multicast Source Discovery Protocol (MSDP)
+* BSR
+
+### Dynamically Finding RP using Auto-RP
+
+* Sends RP-Announce to 224.0.1.39, stating is an RP
+* Message allows router to advertise groups its RP for, allowing some
+  load balancing
+* Sent every minute
+* Next, needs a router to be a mapping agent. Often same as RP, doesn't
+  have to be.
+* Learns RPs and groups they support
+* Sends message called RP-Discovery, identifies RP for each range of
+  groups
+* Message to 224.0.1.40
+* General router population now now which routers are RPs
+* RP-Discovery so that Auto-RP mapping agent decides which RP for each
+  group. Useful for RP redundancy, supports multiple RPs for a group
+* Mapping agent selects router with highest IP as RP for group
+* Can have multiple mapping agents
+* If router with PIM-SM and Auto-RP config'd, automatically join
+  224.0.1.40 CISCO-RP-DISCOVERY group
+* Learns Group-to-RP mappings, maintains in cace
+* When PIM-SM router gets IGMP or PIM-SM join, checks mapping in cache
+
+Summarized steps: -
+
+1. RP config'd with Auto-RP, announces itself and supported groups to
+224.0.1.39
+2. Auto-RP mapping agent gathers info about all RPs (RP Annoucnce
+Messages)
+3. Mapping Agent builds table of best RP for groups
+4. RP-Discover from MA to 224.0.1.40 with mappings
+5. All routers listen for packets to 224.0.1.40
+
+* Problem is that PIM-SM routers need to send a join to RP they don't
+  know yet
+* Sparse-Dense Mode helps, makes a router dense if no RP known, SM when
+  it does
+* Dense long enough to learn mappings, then to sparse
+* Configure per interface with **ip pim sparse-dense-mode**
+* Can avoid unnecessary dense mode flooding with Auto-RP listener
+* This means only Auto-RP traffic flooded out all SM interfaces
+* **ip pim autorp listener**
+
+Normal router: -
+```
+ip multicast-routing
+
+int Se0
+ ip pim sparse-mode
+
+ip pim autorp listener
+```
+
+Auto-RP Mapping Agent
+```
+ip multicast-routing
+
+ip pim send-rp-discovery scope 10 # Can designate source int
+
+int Se0
+ ip pim sparse-mode
+```
+
+Auto-RP RP
+```
+ip multicast routing
+
+int lo0
+ ip address 10.1.10.3 255.255.255.255
+ ip pim sparse-mode
+
+int Se0
+ ip pim sparse-mode
+
+ip pim send-rp-announce loopback0 scope 10
+```
+
+### Dynamically finding RP using BSR
+
+* PIMv2 provides BSR
+* Similar to AutoRP
+* RP sends message to another router collecting group-to-RP mapping
+* That router distributes mappings
+* Once router is BSR (similar to mapping agent)
+
+Differences from BSR to Mapping Agent: -
+* Does not pick best RP for each group
+* All mappings sent to PIM routers in bootstrap messages
+* Routers pick current best RP by using same hash algorithm on info in
+  bootstrap message
+* BSR floods mapping info to ALL-PIM-ROUTERS (224.0.0.13)
+* Flooding not required to have a known RP
+
+* PIM-SM floods bootstraps out all non-RPF ints, meaning one copy of
+  message to every router
+* If BS message on non-RPF int, drop pacekt to prevent loops
+* Each candidate RP (c-RP) informs BSR it is an RP and groups it
+  supports
+* All PIM routers know unicast IP of BSR due to earlier BS messages
+* C-RPs unicast messages to BSR, with IP used by c-RP and groups
+* BSR suports redundant RPs and BSRs
+* BS messages contain all c-RPs
+* For multiple BSRs, c-BSRs send BS with priority and its IP
+ * Highest priority wins, then highest IP
+* Winning BSR sends BSR messages, other BSRs monitor
+ * If cease, others take over
+
+* Minimum config is a cRP or cBSR, and source of messages
+* ACL can limit what groups router will be RP for
+* Can specify priority for multiple BSRs
+
+BSR
+```
+ip multicast-routing
+
+int lo0
+ ip pim sparse-mode
+
+int Se0
+ ip pim sparse-mode
+
+ip pim bsr-candidate lo0 0 # 0 is priority, default
+```
+
+On RP
+```
+ip multicast- routing
+
+int lo2
+ ip address 10.1.10.3 255.255.255.255
+ ip pim sparse-mode
+
+ip pim rp-candidate lo2
+```
+
+### Anycast RP with MSDP
+
+* Anycast RP can use RP config, Auto-RP and BSR
+* Without anycast RP - One router to be active for each group, load
+  sharing for some groups, not others
+* With Anycast RP - Multiple RPs acting as RP for same group
+
+* Each RP uses same IP, /32 prefix with IGP
+* All methods view multiple RPs as single RP
+* Packets routed per IGP to closest RP
+* If RP fails, just needs IGP convergence to change
+
+# Interdomain Multicast Routing with MSDP
+
+* Avoids issue when m'cast source might be in one side of netwokr, but
+  not other
+ * When anycast present and therefore one side of network doesnt see it
+* RP uses MSDP to send messages to peer RPs
+* Source Active messages list IP of each source for each m'cast group
+* Unicast over TCP connection, maintained between RPs
+* Static config
+* RPs must have routes to each of their peers and to sources (BGP or
+  M'cast BGP used for routing)
+* RP in one domain could use MSDP to tell RP in another about multicast
+  source for specific group at unicast IP (eg 226.1.1.1 known by
+172.16.5.5)
+* RP in another domain then floods into to any other MSDP peers
+* Receiver in its domain joins SPT of source 172.16.5.5, group 226.1.1.1
+* If RP no receivers for group, caches them for later
+
+* MSDP RPs send SAs every 60s
+* lists roups and sources
+* RP can request new list with SA request
+* SA response sent back
+* Configure Auto-RP or BSR first
+* If MSDP between routing domaings, then needs BGP
+* MSDP peers specified on each router
+
+```
+int lo2
+ ip address 10.1.10.3 255.255.255.255
+ ip pim sparse-mode
+
+ip multicast-routing
+ip pim rp-candidate lo2
+ip pim msdp peer 172.16.1.1
+```
+
+```
+int lo0
+ ip address 172.16.1.1 255.255.255.255
+ ip pim sparse-mode
+
+ip multicast-routing
+ip pim rp-candidate Lo0
+ip msdp peer 10.1.10.3 connect-source Lo0
+```
+
+* Verify with **show ip msdp peer** (sender) and **show ip pim rp**
+  (receiver)
+
+# Bidirectional PIM
+
+* PIM-SM inefficient with large number of sends and receivers
+
+Steps for Bidi are
+
+1. RP builds shared tree with root (same as SM)
+2. When source sends m'casts, router receiving does not use PIM register. Instead, forwards packets in opposite direction of shared tree to RP
+3. RP forwards through shared tree
+4. All packets forwarded per step 2 and 3, RP does not join source tree for source, leaf do no join SPT either
+
+# Comparison of DM and SM
+
+* While SM more complex, more popular
+* PIM-SM quickly moves to SPT when senders and receivers increase, same
+  SPT PIM-DM would have derived
+
+# Source-Specific Multicast
+
+* Scenarios p to know using ISM (Internet Standard Multicast)
+* No worrying about source
+* Can lead to overlapping m'cast IPs (some streams using same addresses
+  as address space not large)
+* DoS attacks - Attack can be source, can interrupt stream or tax
+  routers/switches
+* Complexity - Complexity increases in large networks
+
+* SSM receivers known unicast IP of source, specify it in group
+* SSM receivers subscribe to S,G with both source and group address
+* Hosts then only receive from specific sources
+* Hard to DoS if not got source IP, and path needs to go through RPF
+  checks
+* RPs dont need to track which sources are active, as sources known
+* Only edge routers nearest host need SSM
+
+* Uses IGMPv3
+* **ip pim ssm { default | range** *access-list* **}**. Addresses in
+  232.0.0.0/24
+* Default permits to forward all multicasts in that range
+* Can limit groups with ACL and range keyword
+* Need IGMPv3 under each interface
+
+```
+ip multicast-routing
+
+int Fa0/0
+ ip pim sparse-mode
+ ip igmp version 3
+
+ip pim ssm default
+```
+
+# Implementing v6 Multicast PIM
+
+* **ipv6 multicast-routing**
+ * Enables on all interfaces
+ * Assumes v6 PIM, doesnt appear in config
+ * Always sparse mode
+* **no ipv6 pim** interface command
+* Tunnels formed for multicast routing
+ * Dynamically when above enabled
+* Tunnel protocol in **show int tunnel** - PIM/IPv6
+* **show ipv6 pim neighbors**
+ * Formed using link locals
+ * DRs still elected
+ * Values maniped as per v4
+
+
