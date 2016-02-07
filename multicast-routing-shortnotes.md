@@ -633,4 +633,111 @@ ip pim ssm default
  * DRs still elected
  * Values maniped as per v4
 
+## Designated Priority Manipulation
 
+```
+int Fa0/0
+ ipv6 pim dr-priority <0-4294967295> - Higher is better
+```
+
+* **show ipv6 pim neighbor** show connect to DR
+
+## PIM v6 Hello Interval
+
+* Every 30s
+* When all neighbours replied, DR chosen
+* Highest priority, then highest IP
+* Holdtime is 3.5 times hello
+* Can auth with MD5 hah
+
+## IPv6 Sparse-Mode Multicast
+
+* For RP, Static, v6 BSR and Embedded RP
+* No Auto-RP or dense mode
+
+### v6 Static RP
+
+```
+ipv6 pim rp-address 2001:2:2:2::2
+```
+
+* **show ipv6 pim range-list**
+
+### IPv6 BSR
+
+```
+ipv6 pim bsr candidate bsr 200:1:2:2:2::2
+ipv6 pim bsr candidate rp 2001:1:1:1::1
+ipv6 pim bsr candidate rp 2001:3:3:3::3
+```
+
+* Verify with **show ipv6 pim bsr rp-cache**, shows Cache from RPs
+* **show ipv6 bsr candidate-rp**
+
+### Multicast Listener Discover (MLD)
+
+* Static group join with **ipv6 mld join-group** *group-address*
+* IGMP replaced by MLD in v6
+ * v1 similar to IGMPv2
+ * v2 similar to v3
+ * v2 supports SSM in v6
+
+* Hosts indicate they want m'cast from selected groups
+* Queriers elected through MLD
+* ICMP carries messages inside, link-local in scope, router alert option
+  set
+* Three messages, Query, Report, Done
+ * Done like leave, triggers query to check more recivers on segment
+* Config options similar to IGMP
+ * **ipv6 mld limit** - limits number of recipients
+ * **ipv6 mld join-group** - permanent subscribe on interface
+* On **ipv6 multicast-routing**, MLD auto enabled
+
+* **show ipv6 pim interdace**
+* **show ipv6 mld interface**
+* **show ipv6 pim traffic**
+
+### Embedded RP
+
+* RP can be part of m'cast group address
+* Router extracts RP's identity and uses it for shared tree immediately
+* Identity of RP explcitily config'd on dvice that is RP
+* No other config required
+* If trying to embed 128-bit RP address into 128-bit group, issue in
+  leaving space for group identity
+
+Accomplish embedding with following rules: -
+
+* Must indicate m'cast group contains embeded RP by tsetting first 8
+  bits to all 1s, so should always start with FF:70::/12
+* Numeric designation for scope, FF7x: -
+ * 1 - Interface local
+ * 2 - Link local
+ * 4 - Admin local
+ * 5 - site local 
+ * 8 - org local
+ * E - Global
+* Isolated three values from RP
+ * RP Int ID
+ * Prefix length in hex
+ * RP prefix
+
+* Organized as per below
+```
+FF7<SCOPE>:0<RP Interface ID><Hex prefix length>:<64-bit RP prefix>:<32
+bit group ID>:<1-F>
+```
+
+Example: -
+* RP of 2001:2:2:2::2/64
+* RP interface is 2 (taken form ::2)
+* Prefix length 64 (40 in hex)
+* RP prefix 2001:2:2:2
+* Global Scope
+* 32 bit group ID commonly 0
+* FF7E:0240:2001:2:2:2:0:1
+
+* **show ipv6 mroute**
+* **show ipv6 pim group-map**
+* Make sure router knows it is RP with **ipv6 pim rp-address**
+* Use above embeded address for group joins on other routers
