@@ -264,6 +264,7 @@ connects to same LAN
 Null-Register bit set, without any encap'd m'cast packet
 
 One of two things hapen
+
 1. Another register-stop, resets register suppression
 2. Doesn't reply, timer expires, R1 sends encap'd m'cast packets in PIM
 register messages (i.e. host/router requires this traffic)
