@@ -629,5 +629,462 @@ int Se1/0/1
 
 * Verify with **show zone-pair security**
 
- 
+# Control-Plane Policing
 
+* Uses MQC
+* Rate limits or drops
+* WOrks on most routers and MLS
+
+## Preparing for CoPP Implementation
+
+* Make sure rate limit is approriate
+* Traffic grouped to form classes
+
+Typical grouping
+* Malicious traffic dropped (frag'd packets, malicious programs)
+* Routing protocols not limited
+* SSH and telnet limited to small amount, but ensures connectivity
+* SNMP, FTP and TFTP
+* Network apps like HSRP, DHCP, IGMP
+* All other IP traffic
+* Default class, including L2 protocols. ONly ARP in other class
+
+* Most routers only support policing of inbound traffic
+
+## Implementing CoPP
+
+1. ACLs to classify
+2. Class maps
+3. Policy maps and associate class maps
+4. Assign allowed bandwidth, conform and exceeds
+5. Assign service policy to control plane
+
+```
+control-plane
+ service-policy input CoPP
+```
+
+* **show policy-map control-plane**
+
+# DMVPN
+
+* IPSec, GRE and NHRP
+* Traffic segmentation across VPNs supported
+* VRF-aware
+* Spoke connection info not configured
+* mGRE and profiles instead
+* Spokes point to one or more hubs
+* Supports m'cast traffic from hub to spoke
+
+Benefits
+* Simpler hub config
+* No config changes on hub
+* IPsec faciliated by NHRP (auto inititated)
+* Dynamic address support
+* Dynamic spoke-to-spoke tunnels
+* VRF integrations
+
+* Routing Protocol between hubs and spokes
+* Cisco recommend DV protocol
+* Learn about networks at other spokes
+* Next hop IP for spoke is tunnel int
+* Clients register with NHRP server
+* Spoke queries hubs for outside IP of dest spoke
+* Hub replies, spoke initiates dynamic tunnel to other spoke
+* Torn down after idle
+
+Config sections
+1. Basic IP config
+2. mGRE tunnel config
+3. Configure IPsec
+4. DMVPN routing config
+
+**Basic IP config**
+```
+R1
+
+int Fa0/0
+ ip address 192.168.123.1 255.255.255.0
+
+int lo0
+ ip address 1.1.1.1 255.255.255.255
+
+R2
+
+int Fa0/0
+ ip address 192.168.123.2 255.255.255.0
+
+int lo0
+ ip address 2.2.2.2 255.255.255.255
+
+R3
+
+int Fa0/0
+ ip address 192.168.123.3 255.255.255.0
+
+int lo0
+ ip address 3.3.3.3 255.255.255.255
+```
+
+**GRE MP Tunnel config**
+
+* **ip nhrp map multicast dynamic** - Allows multicast, RIP, EIGRP OSPF
+* Each DMVPN needs unique ID, **ip nhrp network-id**
+* **ip nhrp authentication** - password
+
+```
+R1 (HUB)
+
+int tun0
+ ip address 172.16.123.1 255.255.255.0
+ tunnel mode gre multipoint
+ tunnel mode source Fa0/0
+ ip nhrp map multicast dynamic
+ ip nhrp network-id 1
+ ip nhrp authentication cisco
+
+R2 (Spoke)
+
+int tun0
+ ip address 172.16.123.2 255.255.255.0
+ tunnel mode gre multipoint
+ ip nhrp authentication cisco
+ ip nhrp map multicast dynamic
+ ip nhrp map 172.16.123.1 192.168.123.1
+ ip nhrp map multicast 192.168.123.1
+ ip nhrp network-id 1
+ ip nhrp nhs 172.16.123.1
+ tunnel source Fa0/0
+```
+
+* NHS command points to outside IP of hub
+* Multicast to hub only (see map)
+
+* **show dmvpn**
+ * Ent - Entries in NHRP DB for spoke
+ * Peer NBMA address - IP of outside int of spokes
+ * Peer Tunnel add - IP of tunnel of spokes
+ * State - up or down
+ * UpDn T - Time up or down, populated after tunnels in serve
+
+**Config IPsec**
+
+```
+crypto isakmp policy 1
+ encryption aes
+ hash md5
+ authentication pre-share
+ group 2
+ lifetime 86400
+
+crypto isakmp key 0 TEST address 0.0.0.0
+
+crypto ipsec transform-set MYSET esp-aes esp-md5-hmac
+
+crypto ipsec profile MGRE
+ set security-association lifetime seconds 86400
+ set transform-set MYSET
+
+int Tun0
+ tunnel protection ipsec profile MGRE
+```
+
+* **show crypto session**
+* **show crypto ipsec sa**
+
+**DMVPN Routing Config**
+
+```
+R1 (HUB)
+
+router ospf 1
+ network 1.1.1.1 0.0.0.0 area 0
+ network 172.16.123.0 0.0.0.255 area 0
+
+int tun 0
+ ip ospf network broadcast
+
+R2
+
+router ospf 1
+ network 2.2.2.2 0.0.0.0 area 0
+ network 172.16.123.0 0.0.0.255 area 0
+
+int Tun0
+ ip ospf network broadcast
+ ip ospf priority 0
+```
+
+* Broadcast means spokes use each others IP as next hop
+
+# IPv6 First Hop Security
+
+## First Hop Security for IPv6
+
+* More end nodes on individual link
+* Large neighbour cache on end nodes
+* Again on default router
+
+* NDP - Integrates all link operations, for address assignment, router
+  discovery, redirect etc
+* DHCP - smaller role in address assignment
+* Noncentralized address assignment
+
+## Link Operations
+
+* Locations to enforce are end nodes, first hop and last hop
+
+### End Node Security Enforcement
+
+* Does not need central admin
+* Each node takes care of itself
+* Secure ND in RFC 3971
+* Good for threads from link, poor from offlink
+
+### First Hop Switch Enforcement
+
+* Based on centralized model
+* Useful only when users go through agg device
+
+### Last Router Security Enforcement
+
+* Attached link and downstream protected
+* Needs to be with First Hop Switch
+* Last hop discovers all end nodes on segment
+
+## ICMPv6 and Neighbour Discovery Protocol
+
+* ICMP used more in v6
+* NDP part of this, non auth'd at base
+* Heavy m'cast usage
+
+Apps of NDP
+* Router discovery
+* Address autoconfig
+* v6 address resolution (ARP reaplacement)
+* Neighbour reachability
+* Duplicate address detection
+* Redirection
+
+### Secure Neighbour Discovery (SeND)
+
+* Security for NDP
+
+Provides: -
+* Proof of address ownership
+ * "Impossible" to take address
+ * Used in router discovery, DAD and addr resolution
+ * Based on Crypo Generated Address (CGA)
+ * Alternatively, non-CGAs with certificates
+* Message protection
+ * Message integrity protection
+ * Replay protection
+ * Req/response correlation
+ * Used in all NDP messages
+* Router auth
+ * Auths routers to act as def gw
+ * Prefixs router allowed to announce on link
+
+* No end to end security
+* No packet confidentiality
+
+* Works with priv/pub keys for each v6 node
+* Combined with CGA and RSA
+* Cannot use own interface ID, crypto gen'd on v6 prefix and pub key
+* CGA ID not sufficient to guarantee address used by right node
+
+* SeND messages signed by RSA pub and priv key pair
+* In addition to Neighbour Advertisement with MAC to v6 mapping, also
+  CGA parameter and public key, plus priv key sig of all NA fields
+* Node 1 pub key verifies CGA address priv key sig of node 2
+
+### Securing at first hop
+
+* Inspect ND traffic
+* L2/L3 binding
+* Monitor use of ND by host
+* Can block RAs and rogue DHCP server advertisements
+
+```
+ipv6 access-list ACCESS_PORT
+ remark Block all traffic DHCP server - client
+ deny udp any eq 547 any eq 546
+ remark Block Router Advertisements
+ deny icmp any any router-advertisements 
+ permit any any
+
+int Gi1/0/1
+ switchport
+ ipv6 traffic-filter ACCESS_PORT in
+```
+
+## RA Guard
+
+* RA snooping exists
+* Switch uses upper layer info
+* Works against rogue RA attacks
+* Must be some intermediary device in network that all traffic will pass
+  through
+* Inspects RAs, and decides whether to drop or forward
+
+```
+ipv6 nd raguard policy POLICY-NAME
+ device-role {host | router}
+
+int Fa0/0
+ ipv6 nd raguard attach-policy POLICY-NAME
+```
+
+* If hosts, RAs dropped
+
+## DHCPv6 Guard
+
+* Blocks replies and advertisement messages from unauthed DHCP servers
+  and relay agents
+* Client messages always switched
+* DHCP server messages only if device role server
+* Can process for source validation and server prefernece on
+  advertisements
+* Also server replies, for permitted prefixes
+
+```
+ipv6 access-list acl1
+ permit host FE80::A8BB:CCFF:FE01:F700 any
+
+ipv6 prefix-list abc permit 2001:0DB8::/64 le 128
+
+ipv6 dhcp guard policy pol1
+ device-role server
+ match server access-list acl1
+ match reply prefix-list abc
+ preference min 0
+ preference max 255
+ trusted-port
+
+int Gi1/0/1
+ switchport
+ ipv6 dhcp guard attach policy pol1 vlan add 1
+
+show ipv6 dhcp guard policy pol1
+```
+
+### DHCPv6 Guard and Binding Database
+
+* v6 snooping builds db table of v6 neighbours connected to device
+* Created from source like DHCPv6 etc
+* Binding table used by v6 FHS features
+ * validates link layer addresses
+ * validates v6 addresses
+ * prefix binding of neighbours to prevent spoofing and redirect attacks
+* Binding table auto poppd after snooping enabled
+
+* **show ipv6 neighbors binding**
+ * Entires with ND learned from NDP snooping
+* v6 snooping integrated with DHCPv6 guard and RA guard
+
+**DHCPv6 Address Integrated with v6 binding database**
+```
+ipv6 access-list dhcpv6_server
+ permit host FE80::1 any
+ ipv6 prefix-list dhcpv6_prefix permit 2001:DB8:1::/64 le 128
+
+ipv6 dhcp guard policy dhcpv6guard_pol
+ device-role server
+ match server access-list dhcpv6_server
+ match reply prefix-list dhcpv6_prefix
+ vlan configuration 1
+  ipv6 dhcp guard attach-policy dhcpv6guard_pol
+```
+
+* After this, DHCPv6 working and binding table popped, DH indicates
+  learned by this
+
+RA policy to allow RAs from legitimate router
+
+```
+ipv6 nd raguard policy ra_pol
+ device-role router
+ trusted-port
+
+int Gi1/0/1
+ ipv6 nd raguard attach-policy ra_pol
+```
+
+## IPv6 Device Tracking
+
+* Provides v6 host tracking
+* Neighbour table updates immediately if host drops
+* Tracks reachability
+* Revokes access when inactive
+
+```
+ipv6 neighbor binding vlan 100 interface Gi1/0/1 reachable-lifetime 100
+ipv6 neighbor binding max-entries 100
+ipv6 neighbor binding logging
+```
+
+## IPv6 Neighbor Discovery Inspection
+
+* Learns and secures SLAAC address bindings in L2 tables
+* Analyzes ND messages
+* Builds trusted binding table
+* v6 ND messages not conforming dropped
+ * Trusted if v6-to-MAC mapping verifiable
+
+```
+ipv6 nd inspection policy example_policy
+ device-role switch
+ drop-unsecure
+ limit address-count 1000
+ tracking disable stale-lifetime infinite
+ trusted port
+ validate source-mac
+ no validate source-mac
+ default limit address-count
+```
+
+* **show ipv6 nd inspection policy**
+* Apply to interface with **ipv6 nd inspection attach-policy**
+  *policy-name*
+
+## IPv6 Source Guard
+
+* Denies traffic originated from address not in binding table
+* No ND or DHCP inspection
+* Works in conjunction with ND inspection or v6 address glean (both
+  detect existing address on link and store in binding table)
+* v6 prefixes in binding table for v6 source guard to work
+
+* Can deny from unknown sources or unallocated addr
+* When traffic denied, v6 glean notified to try and recover traffic
+ * Queries DHCP server or using ND
+ * Data-glean stops deadlock (where valid address fails to be stored in
+   binding table and blocking user completely)
+* If traffic denied with unknown IP/SMAC, address glean
+* Recovers with DHCP_LEASEQUERY to server, DAD NS back
+* NA fomr host, DHCP LEASEQUERY_REPLY comes back
+
+```
+ipv6 source-guard policy example_policy
+ deny global-autoconf  # Denies data traffic from auto config'd global
+ permit link-local # Allows from link-local address
+
+int Gi1/0/1
+ ipv6 source-guard attach-policy example_policy
+```
+
+* Verify with **show ipv6 source-guard policy** *example_policy*
+
+# Port Access Control Lists (PACL)
+
+* Very similar to router ACLs
+* Applied to switch ports
+* Can be ingress or egress
+* Processed first by switch IOS, then VACL
+
+```
+int Gi1/0/1
+ ip access-group PACLIPList in
+ mac access-group PACLMACList in
+```
+ 
