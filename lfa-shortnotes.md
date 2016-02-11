@@ -223,4 +223,227 @@ int Fa0/0
 
 ![BGP PIC](https://raw.githubusercontent.com/stuh84/ccie-rs-notes/master/images/pic.png)
 
+### Convergence
 
+* Happens in subseconds or seconds, dependent on if PIC enabled in line card
+* For platforms with CEF in line card, subsecond
+* For platforms with CEF in software, convergence in seconds
+
+### Improving MPLS VPN BGP local convergence
+
+* Maintains local label for 5 minutes, ensures traffic uses backup/alternate
+* Improves LoC time to under a second
+* When link failure, traffic over backup
+* Overrides MPLS VPN-BGP local convergence (**protection local-prefixes**)
+
+### Config Modes
+
+* VPNv4 AF mode protects all VRFs
+* VRF-IPv4 protects only v4 vrfs
+* Router config mode protects global table
+
+### CEF Forwarding Recursion
+
+* Ability to find next matching path when primary goes
+* Need to disable when using PIC as it searches all FIB entries
+* BGP PIC Edge already computed backup
+* Recursion disabled under two conditions if PIC edge enabled
+ * For next hops with /32 mask
+ * Next hops directly connected
+* **bgp recursion host** - Disables/enables CEF recursion for BGP host routes
+ * By default, enabled on vpnv4/v6, disabled on v4/v6 when PIC enabled
+* Disabled for directly connected next hops with **disable-connected-check**
+
+### Configuration
+
+```
+router bgp
+ address-family ipv4/vpnv4/ipv4 vrf
+  bgp additional-paths install
+  bgp recursion host
+  neighbor x.x.x.x fall-ver bfd
+```
+
+* Disable PIC core - **cef table output-chain build favor memory-utlization**
+
+## BGP Add Paths
+
+### Benefits
+
+* Adv multiple paths for same prefix
+
+### Functionality
+
+* Adds path ID for each path in NLRI
+* Similar to RD, except any AF
+* ID unique to peering session
+* generated per nettwork
+* Stops overriding announcements
+
+Following steps
+1. Specify if device can send/rx or both, for Add Paths in AF or neighbour (capability negotiation)
+2. Select candidate paths for advertisement
+3. Adverise for a neighbour
+
+* Those negotiated capability grouped in a different update group from those that dont
+
+**Additional Path Slection**
+
+* **set path-selection all advertise** advertises all paths
+
+### Guidelines and limitations
+
+* Not dynamic capability
+* Valid on next reset of neighbour
+* No tearing down of sessions
+
+### Configure add paths
+
+```
+router bgp 65000
+ address-family ipv4/ipv6 unicast
+  additional-paths receive
+  additional-paths send
+  additional-paths selection route-map NAME
+```
+
+### Configure BGP Add Paths per neighbour
+
+```
+router bgp 65000
+ neighbor x.x.x.x remote-as 65001
+  address-family ipv4/ipv6 unicast
+   capability additional-paths receive [disable]
+   capability additional-paths send [disable]
+```
+
+* Above overrides whats at AF level
+
+### Peer Policy
+
+```
+router bgp 65000
+ template peer-policy NAME
+  capability additional-paths receive
+  capability additional-paths send
+ neighbor x.x.x.x remote-as 65001
+  address-family ipv4 unicast
+   inherit peer-policy NAME sequence-number
+```
+
+### Filtering and setting actions for add paths
+
+* Route map to filter paths
+* Match on prefix of additional paths that are candidates
+
+```
+route -map NAME deny/permit
+ set path-selection all advertise
+ set metric
+```
+
+## BGP NHT
+
+* Next-Hop address tracking enabled by default when IOS supports it
+* Event driven
+* Prefixes auto tracked when peers establish
+* Next-hop changes picked up by BGP quickly (when RIB updates)
+* When best path calc run in between scanner cycles, only next-hop changes tracked and processed
+
+### Default BGP Scanner Behaviour
+
+* Monitors next hop for reachability
+* Polls RIB every 60s
+
+### Selective BGP Next-hop Route Filtering
+
+* Implemented as part of selectic tracking feature
+* Supports NH tracking
+* Route map defines routes to resolve BGP next hop
+* **bgp nexthop** - allows config length of prefix that applies NH attribute
+* Route map during bestpath calc, applied to route in routing table that covers next-hop attribute for prefixes
+* If next-hop route fails route-map, marked as unreachable
+* **match ip address** and **match source-protocol** in route map
+
+### BGP Support for Fast Peering Session Deactivation
+
+**Fast Peering Deactivation**
+
+* Event driven
+* Per neighbour basis
+* monitors session to neighbour
+* Adj changes detected
+* Terminates peering session in between default or config'd BGP scanning interval
+
+**Selective Address Tracking for BGP fast session deactivation**
+* Route map
+* **neighbor fall-over** command, determines if peering session reset when route to peer changes
+* Route map evaluates new route
+* If deny return, session reset
+
+### Configuration
+
+* Make sure IGP convergence is quick, otherwise BGP reacts while still converging
+
+**Selective Next-Hop Route Filtering**
+
+```
+router bgp 65000
+ address-family ipv4 unicast
+  bgp nexthop route-map CHECK-NEXTHOP
+
+ip prefix-list FILTER seq 5 permit 0.0.0.0/0 le 25
+
+route-map CHECK-NEXTHOP deny 10 
+ match ip address prefix-list FILTER
+
+route-map CHECK-NEXTHOP permit 20
+```
+
+**Adjust delay interval for Next hop tracking**
+
+* Tune delay between full table walks to match IGP parameters
+* Default 5s
+
+```
+router bgp 65000
+ address-family FAMILY
+  bgp nexthop trigger delay TIMER - Max 100s
+```
+
+**Disabling next hop address tracking**
+
+* Enabled by default on v4 and vpnv4
+* Since IOS 12.2(33), by default under VPNv6 when next hop is v4 address mapped to v6 next ho paddress
+
+```
+router bgp 65000
+ address family FAMILY
+  no bgp nexthop trigger enable
+```
+
+### Configuring Fast Session Decativation
+
+**Per Neighbour**
+
+```
+router bgp 65000
+ address-family FAMILY
+  neighbor X.X.X.X remote-as 65001
+  neighbor X.X.X.X fall-over
+```
+
+**Selective**
+
+```
+router bgp 65000
+ neighbor X.X.X.X remote-as 65001
+ neighbor X.X.X.X fall-over [route-map NAME]
+
+ip prefix-list FILTER seq 5 permit 0.0.0.0/0 ge 28
+
+route-map CHECK-NEXTHOP deny 10
+ match ip address prefix-list FILTER
+
+route-map CHECK-NEXTHOP permit 20
+```
