@@ -25,6 +25,7 @@
 * Keepalive - 60 by default
 * `bgp timers keepalive holdtime` - Global
 * `neighbor timers` - Per neighbour
+* Fast convergence - Update peers every 5 seconds for iBGP, 30 for eBGP, also relies on IGP
 
 # Trivia
 
@@ -217,7 +218,6 @@ _ - Any delimiter (blank, comma, SOL, EOL)
 * Discretionary - Not required in update
 * Transitive - Silently forwarded, even if unknown to self
 * Nontransitive - Remove and do not propagate
-
 * Well known mandatory - AS-PATH, NEXT_HOP, ORIGIN
 * Well known discretionary - ATOMIC_AGGREGATE
 * Optional Transitive - Aggregate
@@ -239,6 +239,83 @@ _ - Any delimiter (blank, comma, SOL, EOL)
 * Multiple routes into table after 9
 * Even if multiple added, best path advertised only
 
+## Policies
+
+* NEXT_HOP - self or unchanged
+* Weight - 0 through 65535, default 0 for learned 32768 for local injection
+ * Set with Route Map or neighbor weight, route map takes pref
+* Local pref - Default 100, `bgp default local-preference VALUE`
+* Locally injected routes with Origin 
+ * Local injection weight auto used
+ * Might happen if local injection plus Weight route map manipulation
+ * Same NLRI from different sources
+* Shortest AS-PATH - AS-Sets count as 1, confeds don't count
+ * remove-private-as - by router attached to private AS
+ * local-as no-prepend - Different than in neighbour command
+ * bgp bestpath as-path ignore
+ * Private ASNs only removed for eBGP updates
+ * If AS_SEQ priv and pub, priv not removed
+ * If ASN of eBGP peer in current AS_PATH, private ASN not removed
+ * Route agg can decrease path length
+* Best origin - set origin in route map
+* MED - Default 0, sent to one AS, no further
+ * bgp bestpath med missing-as-worst
+ * Range of 0 through 2^32 -1
+ * bgp always-compared-med - puts before AS path
+ * bgp deterministic-med - Process per adjacent AS, then picks best
+* Maximum Paths - `maximum-paths` command
+ * Defaults to 1
+* Lowest Route ID - Examines eBGP routes only, picks routes with lowest RID
+ * if only iBGP routes, lowet RID
+ * If BGP has best route to NLRI, but new info learned from other routes
+  * Including BGP route to reach previously known prefix
+  * Goes through decision process again
+ * If gone through process and gets here again, does not replace exisitng best
+ * stops flaps
+ * `bgp bestpath compare-routerid` - eBGP routes only
+
+### Max Paths
+
+* eBGP - Tiebreaker, max paths above 1, adjacent ASN must be same, tiebreaker if more candidates than can be used
+* iBGP - Tiebreaker, maximum-paths ibgp, only with differing next hops
+
+## Communities
+
+* Optional transitive
+* Must include all values in same community list (un ordered)
+* Extended uses regex
+* 16 lines in standard
+* Many in extended
+* set community none
+* set comm-list LIST delete
+* match and match exact
+* FFFF:FF01 - NO_EXPORT - Not out of this AS but can be to cofeds
+* FFFF:FF02 - Not to any other peer
+* FFFF:FF03 - Not out of local confed sub-AS (NO_EXPORT_SUBCONFED)
+
+## Fast convergence
+
+### Fast External Neighbour Loss Detection
+
+* eBGP direct neighbours torn down if connected subnet goes - immediately
+* Immediate route flush
+* Immediate alternates
+* Default from IOS 10.0 and up
+
+### Internal Neighbour Loss Detection
+
+* 12.0 up
+* Neighbor fall-over - Keepalive traffic not required to signal pull down quickly
+ * Moment IP of peer removed, session goes
+ * IGP must find BGP peer immediately, or BGP session disconnetion
+ * Holddown/delay in BGP session not used
+
+### eBGP Fast Session Deactivation
+
+* Quick detects failures of eBGP to loopbacks, or when external fallover disabled
+* `no bgp fast-external fallover` - Disables, retains quick response to interface failure
+* Identical to internal
+* Can relect rule that BGP peer has to be correctly connected, route map matching connected subnets
 
 
 # Config
