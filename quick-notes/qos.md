@@ -1,5 +1,15 @@
 # Messages
 
+# Concepts
+
+* TxQueue or Tx Ring on interface
+ * FIFO
+ * No effect from IOS tools
+ * Shrinks to small length when tools exist
+ * `tx-ring-limit 1`
+* Queueing on Ints versus Subifs and VCs
+ * Shaping function queues packets, by default in fifo queue  
+
 # Packet formats
 
 * IP header
@@ -156,9 +166,131 @@
  * DLCI - Applies to FR map class, class to DLCI
  * Turn off NBAR with `no auto discovery qos`
 
+## CBWFQ and LLQ
+
+* CBWFQ reserves bandwidth for each queue
+* WFQ in default queue
+* LLQ - Priority with bw limit
+* Bandwidth in CBWFQ
+* priority in LLQ
+* 64 queues/classes
+* Max queue length can be changed
+* Class-default always exists
+* If all queues with large number of packets, percentage of bandwidth as implied by config
+ * If some empty, distributed proportionally
+* FIFO on 63 queues, WFQ on class-default (Cisco 7500 can be WFQ on all)
+* Schedules among all - Percentages of guaranteed bandwidth
+
+### Defining and limiting bandwidth
+
+* Pre IOS 15 - checked to make sure too much not allocated, service policy rejected
+ * Based on bandwidth and max-reserved-bandwidth
+* No max-reserved in IOS bw, based on int-bw
+* bandwidth percent - based on int-bw
+* If remaining percent, percentage of classes reserved bandwidth (from bandwidth percent)
+* Explicit bw - sum of values lt or eq to max-res x int-bw
+* Percent - lt or eq to max res
+* remaining - lt or eq to 100
+
+### LLQ
+
+* Scheduled first
+* `priority {bandwidth-kbps | percentage PERCENTAGE} [burst]` - Guaranteed min and policed max
+ * burst 20% by default
+* Actual bw from LLQ and nonLLQ not exceed max-res x int-bw
+* LLQ took from remaining bw, meaning rest can total 100
+
+* Bandwidth under class default - reserved
+ * if not set, whatevers left
+* Congestion = full hw queue
+
+## WRED
+
+* Monitors queue length - discards more when longer
+* Average queue depth compared to min and max threshold
+* If Avrg lt min - NO DROP
+* Min lt Avrg lt Max - Random Drop
+* Avrg gt Max - Full drop 
+ * Not tail drop, as max thresh might not be full queue size
+* MPD - Mark Probability denominator
+ * Discard percentage at max threshold is 1/MPD
+
+* Min Thresh 20, max 40, MPD of 10
+* Between min and max, random drops
+* At max, 10% discard
+* Over max, 100% discard
+
+### Weighting
+
+* Each profile has min, max and MPD
+* Higher MPD = lower drops during time b/w thresholds
+* Defaults - DSCP, Min Thresh, max Thresh, MPD, 1/MPD
+ * AFx1 - 33, 40, 10, 10%
+ * AFx2 - 28, 40, 10, 10%
+ * AFx3 - 24, 40, 10, 10%
+ * EF - 37, 40, 10, 10%
+
+## MDRR
+
+* 12000 only
+* 7 round robins (0-6), 1 priority
+* When none in priority, each queue used once per cycle
+* When in priority, strict or alternate
+ * Strict - served first always - can get more than config'd bw
+ * Alternate, 0, P, 1 P etc
+* Quantum Value and Deficit
+* QV - number of bytes
+* Any extra bytes are deficit (can't take half packets)
+* Each queue gets a guaranteed bw
+
+## LAN Switch Congestion Management and Avoidance
+
+### Ingress
+
+* 3560 - Two Ingress queues, one can be PQ
+* WTD has discard thresholds per queue
+* SRR schedules
+* Rate packets from ingress to switch fabric
+ * In shared, bw shared between two queues according to weights
+ * Bw guaranteed, not limitied
+* If one queue emptry, other gets all bw
+* Relative weights rather than absolutes (ratios), like CBWFQ with percentages
+
+
 # Processes
 
+## LAN Switch Ingress Queueing
+
+* Which traffic to put into queue (Cos 5 default queue 2, others queue 1)
+ * Can use DSCP
+* Priority traffic?
+* Bw and buffer space per queue
+* Whether WTD appropriate
+
 # Config
+
+## CBWFQ
+
+* bandwidth VALUE (in kbps) - Literal
+* bandwidth percent - Percentage
+* bandwidth remaining percent
+* queue-limit - Max queue length
+* fair-queue [queue-limit VALUE] - WFQ in class
+
+```
+int Se0/0
+ max-reserved-bandwidth 85
+ service-policy output NAME
+```
+
+## WRED
+
+* Configured with Queue
+* Not in LLQ, can be on Physical int or ATM VC
+* `random-detect dscp DSCPVALUE MINTHRESH MAXTHRESH [MPD]`
+* As above but precedence
+* Change calc of queue with with Exponential Weight constant - Lower means old average smaller part of calc (so quick change average)
+ * `random-detect exponential-weight-constant CONSTANT`
 
 # Verification
 
@@ -174,4 +306,6 @@ show auto qos
 show mls qos
 
 show auto discover qos
+
+show controllers <-- tx_limited is Tx_ring
 ```
