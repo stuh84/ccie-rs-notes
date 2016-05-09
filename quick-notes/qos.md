@@ -78,7 +78,100 @@
 * Can refer to hostname, URL, mime type etc
 * Citrix
 * RTP matching on even number only, can classify payload (odd numbers are contro)
+* `ip nbar protocol discovery` - Not required after 12.2T/12.3
+* Upgrade PDLMs, add with `ip nbar pdlm NAME`
+
+
+### CB Marking
+
+* CEF required
+* Processed sequentially, onced match no further
+* Multiple sets allowed
+* Class-default for unmatch
+* Load interval sub command defines how often IOS measures packets/rates on interface
+ * lower quick, default 5 mins, lowest 30s
+
+### Pre-Classification
+
+* For traffic to be encrypted
+* ToS byte to tunnel header (in IPSec transport, tunnel and GRE)
+* Can't use NBAR for this
+* Pre-classification instead, keeps traffic in memory
+* Use `qos pre-classify` on tunnel, VT or crypto map
+* See with show interface and show crypto-map
+ * Int tunnel for GRE and IPIP
+ * VT - L2F and L2TP
+ * Crypto map - IPSec
+
+### Policy routing
+
+* Mark IPP or ToS on ingress packets
+
+## Auto QoS
+
+### VoIP
+**Switches**
+* Enabled per int
+* CDP detects phone (soft or hardware)
+ * auto qos voip {cisco-phone | cisco-softphone}
+ * If no phone found, DSCP 0
+ * If phone, trust QoS markings
+ * Voice/video control, real time video, voice, routing and STP BPDUs in priority queue
+ * All others in normal
+ * On egress, voice in priority, rest on others
+* On uplinks/trusts, trusts CoS/DSCP, sets up int qos
+ * auto qos voip trust - Trusts DSCP and CoS
+* Globally enables QoS
+* CoS-DSCP and reverse maps created
+* Priority queues
+* CoS/DSCP values mapped to queues/thresholds
+* Class maps and policy maps identify/prioritize/police voice
+
+**Routers**
+* auto qos voip [trust]
+* Need int bandwidth setting
+ * Below 768kbps - compression and frag, PPP encap, PPP multilink, LFI
+ * Traffic shaping and service policy at all bandwidths
+* If trust, class maps group traffic on DSCP
+* If not, ACLs match voice, data and control, rest DSCP0
+
+### Enterprise
+
+* auto discovery qos [trust]
+* CEF required, bandwidth config'd
+* Trust for traffic marked already
+* NBAR discovery
+* Run it long enough, then apply
+ * Routing - CS6 - Routing protos
+ * VoIP - EF - RTP
+ * Interactive Video - AF41 - RTP
+ * Streaming video - CS4 - real audio, netshow
+ * Control - CS4 - RTCP, H323, SIP
+ * Transaction - AF21 - SAP, Citrix, telnet, SSH
+ * Bulk - AF11 - FTP, SMTP, POP3, exchange
+ * Scavenger - CS1 - P2P
+ * Management - CS2 - SNMP, SYSLOG, DHCP, DNS
+ * Best Effort - Everything else
+* `auto qos` in interface
+ * DLCI - Applies to FR map class, class to DLCI
+ * Turn off NBAR with `no auto discovery qos`
 
 # Processes
 
 # Config
+
+# Verification
+
+```
+show policy-map NAME
+
+show policy-map INTERFACE input/out class NAME
+
+show ip nbar protocol-discovery interface Fa0/0 stats packet-count top-n 5
+
+show auto qos
+
+show mls qos
+
+show auto discover qos
+```
