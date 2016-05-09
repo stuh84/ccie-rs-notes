@@ -1,5 +1,15 @@
 # Messages
 
+## RSVP
+
+* PATH - From originator to terminating GW
+* RESVs - in response
+* PATHs again to originator from terminator
+* RESVs in response
+* ResvConfs in response from terminator
+* PHOP recorded (previous hop) put in Path messages to point return path for next device
+* Periodic refresh messages
+
 # Concepts
 
 * TxQueue or Tx Ring on interface
@@ -256,6 +266,27 @@
 * If one queue emptry, other gets all bw
 * Relative weights rather than absolutes (ratios), like CBWFQ with percentages
 
+### Congestion Avoidance
+
+* WTD on by default when QoS on switch
+* Three thresh per queue (CoS based) - tail drop when particular percentage
+* Defaut drop at 100% of queue
+ * works for priority
+* Could do Thresh 1 drops traffic for values 0-3 when reach 40%, 2 with Cos 4 and 5 at 60%, 3 for 6 and 7, 100%
+* Thresh 3 always 100%
+* Separate from queues config
+
+## Egress Queuing
+
+* Four queues
+* Configure CoS/DSCP to queue
+* Weights
+* Drop threshold
+* PQ always queue 1
+* WTD config'd like ingress
+* Commands at int level, not global
+* Can shape to slow egress traffic
+
 
 # Processes
 
@@ -266,6 +297,35 @@
 * Priority traffic?
 * Bw and buffer space per queue
 * Whether WTD appropriate
+
+## LAN Switch Egress Queueing
+
+**When frame given internal DSCP and egress int, following logic for queue placement**
+
+1. Frames internal DSCP to DSCP-to-CoS map
+2. Per int CoS to Queue map
+
+* Shared/Shaped SRR
+ * Sharped rate limits won't exceed config'd percent of links bandwidth
+ * `srr-queue bandwidth share WEIGHT1 WEIGHT2 WEIGHT3 WEIGHT4`
+ * `srr-queue bandwidth shape WEIGHT1 WEIGHT2 WEIGHT3 WEIGHT4`
+* Default weights 25
+ * Shared keeps servicing one queue to int bandwidth
+ * Shaped only gets config'd percent
+* If Queue 1 (PQ) empty, others serviced
+* If frame in PQ - serviced
+ * Scheduler limits bw
+ * Limits excess above queue, doesn't discard
+* DSCP/CoS maps to queues global config (as per input)
+* Each interface belongs to one of two egress queue sets
+* BUffer and WTD done per queue set
+* Bandwidth, shaped, shared and priority done on interface
+
+## RSVP
+
+* Unidirectional
+* Flow based on dest IP, protocol ID, dest port
+
 
 # Config
 
@@ -292,6 +352,73 @@ int Se0/0
 * Change calc of queue with with Exponential Weight constant - Lower means old average smaller part of calc (so quick change average)
  * `random-detect exponential-weight-constant CONSTANT`
 
+## Switch Ingress Queuing
+
+### Priority Queue
+
+* `mls qos srr-queue input priority-queue ID bandwidth WEIGHT` - Weight = percentage of links bandwidth
+* Packets in priority served the moment current frame finished in non-priority
+
+```
+mls qos srr-queue input cos-map queue 2 6 <-- Queue value 2, CoS value 6
+mls qos srr-queue input priority-queue 2 bandwidth 20 <--- Serve 20% of total bandwidth, before then sharing between queues
+mls qos srr-queue input buffers PERCENT1 PERCENT2 <--- Ratio of interface buffers per queue (default 90% queue 1, 10% queue 2)
+mls qos srr-queue input bandwidth WEIGHT1 WEIGHT2 <--- Frequency of scheduling from buffers, default 4 and 4
+```
+
+* Default settings - Queue 2 priority, Queue 2 10% bw, Cos 5 in queue 2
+
+### Congestion avoidance
+
+```
+mls qos srr-queue input threshold QUEUEID threshold-percent1 threshold-percent2
+mls qos srr-queue input cos-map threshold threshold-id cos1...cos8 <--- replace for DSCP
+
+mls qos srr-queue input threshold 1 40 60
+mls qos srr-queue input cos-map threshold 1 0 1 2 3
+mls qos srr-queue input cos-map threshold 2 4 5 
+mls qos srr-queue input cos-map threshold 3 6 7
+```
+
+## Switch Output Queueing
+
+```
+mls qos queue-set output 1 buffers 40 20 30 10
+mls qos queue-set output 1 threshold 2 40 60 100 100 <--- QUEUE-ID THRESH1 THRESH2 RESERVEDBW MAXBW
+
+int Fa0/1
+ queue-set 1
+ srr-queue bandwidth share 10 10 1 1
+ srr-queue bandwidth shape 10 0 20 20 <-- Shape overrides share
+ priority-queue out
+```
+* In above, thresh1 and thresh2 defined, thresh3 always 100%
+* Reserved BW - How much of the bandwidth is reserved for the queue
+* Max BW - How much the queue can expand if no other traffic present - range of 1  to 3200%
+* 0 in Shape means no limit (so queue 2 would not be shaped)
+mls qos queue-set 1 threshold 1 138 138 92 138
+mls qos queue-set 1 threshold 1 138 138 92 138
+* Q1 can either be prioritized or shaped
+
+## RSVP
+
+* Allocates bw per flow
+* Bw per int allowed
+
+```
+int fa0/0
+ ip rsvp bandwidth TOTAL-KBPS SINGLE-FLOW-KBPS <--- 75 percent of int-bw default total
+ ip rsvp signalling dscp VALUE - DSCP for rsvp messages
+ ip rsvp resource-provider none <--- Disables RSVP WFQ when LLQ exists
+ ip rsvp data-packet classification none <--- Stops RSVP processing all packets
+```
+
+* Flow of 0 means full amount
+* RSVP reserves voice for voice calls
+* Gateways place in priority queue
+* When using LLQ, PQ size includes l2 overhead
+* RSVP bw does not - set RSVP bw equal to PQ minus L2 overhead
+
 # Verification
 
 ```
@@ -308,4 +435,92 @@ show mls qos
 show auto discover qos
 
 show controllers <-- tx_limited is Tx_ring
+
+show mls qos input-queue
+Distribution1#show mls qos input-queue
+Queue     :       1       2
+----------------------------------------------
+buffers   :      90      10
+bandwidth :       4       4
+priority  :       0      10
+threshold1:      40     100
+threshold2:      60     100
+
+To achieve above: -
+
+mls qos srr-queue input buffers 90 10 
+mls qos srr-queue input bandwidth 4 4
+mls qos srr-queue input threshold 1 40 60
+mls qos srr-queue input threshold 2 100 100
+
+show mls qos queue-set
+
+SW-3560#sh mls qos queue-set 
+Queueset: 1
+Queue     :       1       2       3       4
+----------------------------------------------
+buffers   :      10      10      26      54
+threshold1:     138     138      36      20
+threshold2:     138     138      77      50
+reserved  :      92      92     100      67
+maximum   :     138     400     318     400
+Queueset: 2
+Queue     :       1       2       3       4
+----------------------------------------------
+buffers   :      16       6      17      61
+threshold1:     149     118      41      42
+threshold2:     149     118      68      72
+reserved  :     100     100     100     100
+maximum   :     149     235     272     242
+
+mls qos queue-set 1 threshold 1 138 138 92 138
+mls qos queue-set 1 threshold 2 138 138 92 400
+mls qos queue-set 1 threshold 3 36 77 100 318
+mls qos queue-set 1 threshold 4 20 50 67 400
+mls qos queue-set 1 buffers 10 10 26 54
+
+mls qos queue-set 2 threshold 1 149 149 100 149
+mls qos queue-set 2 threshold 2 118 118 100 235
+mls qos queue-set 2 threshold 3 41 68 100 272
+mls qos queue-set 2 threshold 4 42 72 100 242
+mls qos queue-set 2 buffers 16 6 17 61
+
+SW-3560#sh mls qos maps cos-output-q 
+   Cos-outputq-threshold map:
+              cos:  0   1   2   3   4   5   6   7  
+              ------------------------------------
+  queue-threshold: 4-3 4-2 3-3 2-3 3-3 1-3 2-3 2-3 
+
+CoS 0 Mapped to Queue 4, threshold 3
+Cos 1 Mapped to Queue 4, threshold 2
+etc etc
+
+eg 
+
+mls qos srr-queue output cos-map queue 4 threshold 3 0
+
+SW-3560#sh mls qos maps dscp-output-q 
+   Dscp-outputq-threshold map:
+     d1 :d2    0     1     2     3     4     5     6     7     8     9 
+     ------------------------------------------------------------
+      0 :    04-03 04-03 04-03 04-03 04-03 04-03 04-03 04-03 04-01 04-02 
+      1 :    04-02 04-02 04-02 04-02 04-02 04-02 03-03 03-03 03-03 03-03 
+      2 :    03-03 03-03 03-03 03-03 02-03 02-03 02-03 02-03 02-03 02-03 
+      3 :    02-03 02-03 03-03 03-03 03-03 03-03 03-03 03-03 03-03 03-03 
+      4 :    01-03 01-03 01-03 01-03 01-03 01-03 01-03 01-03 02-03 02-03 
+      5 :    02-03 02-03 02-03 02-03 02-03 02-03 02-03 02-03 02-03 02-03 
+      6 :    02-03 02-03 02-03 02-03 
+
+00 - DSCP decimal 00
+46 - DSCP EF - mapped to queue 1 threshold 3
+10 - AF11 - mapped to Queue 4 threshold 2
+
+eg
+
+mls qos srr-queue output dscp-map queue 1 threshold 3 46
+mls qos srr-queue output dscp-map queue 4 threshold 2 10
+
+
+show ip rsvp interface
+show ip rsvp interface detail
 ```
