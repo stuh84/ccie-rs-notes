@@ -102,6 +102,35 @@
 |Non-client|Yes|No|
 |eBGP|Yes|Yes|
 
+* Multiple clusters make sense only when physical redundancy
+ * Must have one peer from RR cluster to another RR cluster
+* All RRs peer directly (mesh*
+* Non-clients fully mesh with all RRs in all clusters
+
+### Loop avoidance
+
+* CLUSTER_LIST - If own CLUSTER_LIST on RR - drop update
+* ORIGINATOR_ID - If own RID seen (by client/non-client), drop it
+* Only advertises best routes
+
+## MP-BGP
+
+* With L3VPNs, VPNv4, Label info and standard comms transmitted
+* Capabilites in Open message
+
+### Two nontransitive attributes
+
+* MP_REACH_NLRI
+ * Reachable prefixes with next hop info
+ * Contains AFI
+ * Contains Next hop info - next router in path to destination
+ * NLRI - must be in same AF
+* MP_UNREACH_NLRI
+ * Revokes routes
+
+* `no bgp default ipv4-unicast`
+* Activate peers in AFI
+* Extended Communities by default only
 
 # Processes
 
