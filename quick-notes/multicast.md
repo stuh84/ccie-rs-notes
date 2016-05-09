@@ -11,7 +11,15 @@
  * Group Address
  * v2 back compat with v1, 0x11 and 0x12 match v1 queries and reports
  * v2 hosts and routers recgnize v1 messages
- 
+
+## PIM-DM
+
+* Hello - forms neighbours, monitors Adj, elects PIM DR on MA networks
+* Prune
+* State refresh
+* Assert
+* Prune override
+* Graft/Graft-Ack 
 
 # Timers
 
@@ -165,7 +173,315 @@
 * RP looks at mroute, proxies IGMP report to upstream UDL 
 * Proxy creates and maintains forwarding entry on UDL
 
+## RPF Check
+
+* Looks at source of m'cast packet
+ * Source int must be IGP dest for source IP
+
+## Scoping
+
+### TTL
+
+* Default TTL on interface of 0
+* Can configure higher for a boundary
+* Applies to all m'cast packets
+
+### Admin scope
+
+* Apply filter
+* 239.0.0.0/24 - private addr
+
+## PIM-DM
+
+* RPF Check, floods until prunes
+* v2 sends hellos every 30s
+* IP Protocol 103
+* 224.0.0.13
+* Hold time is three times hello
+* v1 used PIM Queries (IP proto 2, 224.0.0.2)
+* PIM messages sent only on ints with known active pim neighbours
+
+### Source-Based Distribution Trees
+
+* If RPF passed, packet forwarded to all PIM neighbours except packet source
+* Also known as shortest path tree
+* Path from source host to all subnets requiring it
+* Different SBDT for each source and m'cast group, differs on location
+* (S, G)
+
+### Prune
+
+* For subnets not needing it
+* Default 3 minute prune timer, resets
+
+**Failed Link**
+* If unicast table changes, RPF int can change
+* Different ints in outgoing list
+* INts pruned may go forwarding
+
+**Pruning rules**
+* Packet on non-RPF int
+* No hosts wanting it
+* IGMP Leave
+* Prune reference SPT out RPF int
+* show ip mroute has P flag (prune)
+* C flag and RPF neigh of 0.0.0.0 means connected device is source
+* Prune and Join same message (group in join or prune field)
+
+**Steady-State Operation and State Refresh**
+* v2 for State refresh
+* Prevents auto unpruning
+* Default timer 60s (not tied to prune expiration)
+
+**Graft**
+* Unprunes
+* Message upstream
+* Graft Acks downstream
+* Individual grafters per router if many pruned
+
+### LAN Specific issues in PIM-DM and PIM-SM
+
+**Prune Override**
+* Join on b'cast segment, sent to 224.0.0.13
+* sent before 3-second time expires
+
+**Assert**
+* Routers neg, winner forwards onto LAN
+* Winner on routing protocol and metric to find route to reach unicast metric
+ * If tie, metric wins
+ * If tie, highest IP on LAN wins
+
+**Designated Router**
+* PIM hellos elect DR on MA 
+* Router with highest IP DR on link
+* Applies for v1, as no querier mechanism
+ * in v1, PIM DR IGMP querier
+ * in v2, directly elects
+* Querier and Assert likely different routers
+* Querier uses lowest IP, Assert has higehst IP as breaker
+
+## PIM SM
+
+* Elects DR on MA network
+* Prune overrides
+* Assert elects designated forwarder
+
+## Joining Shared Tree
+
+* Root-Path Tree
+* RP is root
+* One tree for each active group
+* PIM Joins or IGMP Membership Reports
+* S flag in show ip mroute
+* Source Path Tree to RP, RPT to receivers
+
+## SSO with Send Joins
+
+* Periodic PIM-SM join every 60s
+* Must be at least one IGMP report/Join in response to gen query
+* 3m Prune timer
+
+## Analsying Mroute table
+
+* If incoming int null, router is root (RP)
+* RPF neighbour listed as 0.0.0.0 for same reason
+* T is SPT, source listed at beginning of line
+ * Incomcing int shown and RPF neigh
+* RP uses SPT to pull traffic from source
+
+## SPT Switchover
+
+* Avoids inefficient paths
+* Switches overs, prunes to upstream of shared tree
+* RPT joined first as source unknown
+
+
+
+## Pruning from Shared Tree
+
+* RPT may no longer be needed
+* PIM-SM Prune to RP, references S,G SPT, identifying source
+
+## Dynamically finding RPs and using Redundant RPs
+
+* Unicast
+* AutoRP
+* BSR
+
+### Auto-RP
+
+* RP-Announce to 224.0.1.39
+ * Router advertises groups its RP for
+ * Sent every minute
+* Need a mapping agent
+* Learns RPs and groups they support
+* RP Discovery, to 224.0.1.40
+* RP discovery for MA to decide which RP for each group
+* MA selects Highest IP as RP for group
+* If router with PIM-SM and Auto_RP configd, auto joins 224.0.1.40 group
+* Learns Group-to-RP mappings
+* ip pim sparse-dense-mode or ip pim autorp listener for dense propagation of these groups
+
+### BSR
+
+* PIMv2
+* RP sends messages to another router collecting group-to-RP mappings
+* Router distrbutes mappings (similar to MA)
+* MA does not pick best RP for each group, all mappings sent to PIM routers instead
+* Routers pick current best RP with same hashing info
+* BSR floods mappings to ALL-PIM-ROUTERS (224.0.0.13)
+* Floods out all non-RPF ints
+* If BS on non-rpf int, drops
+* Each cRP informs BSRs groups it supports
+* C-RP unicasts messages to BSR, with IP used and groups
+* BS message contains all c-RPs
+* For multiple, c-BSRs send BS with priority and its IP
+ * Highest priority then highest IP
+* Winniner BSR sends BSR message, others monitor
+* ACL can limit what groups router is RP for
+* Can specify priority for multiple BSRs
+
+### Anycast RP with MSDP
+
+* Can use any RP config
+* Multiple RPs acting as RP
+* Will partition group, so MSDP peers up to make sure that mappings that either RP learns are passed over
+
+## MSDP for Interdomain
+
+* RP uses MSDP to send messages to peer RPs
+* Source Active - IP of each srouce for each m'cast group
+* Unicast TCP connection
+* Static config
+* BGP used for main routing
+* Receiver in other domain joints SPT of source, as this is whats in SA
+* If RP No receives for gorup caches them for later
+* SAs every 60s
+ * Lists groups nd sources
+ * SA request for new list
+ * SA response back
+* Config Auto-RP or BSR first
+
+## Bidi PIM
+
+* PIM-SM inefficient for large groups of senders and receivers
+* RP builds shared tree with root
+* When sources send m'casts, router rx does not use PIM register, instead forwards in opposite direction of shared tree to RP
+* RP Forwards through shared tree
+* All packets forwarded as per step 2. 
+* RP Does not join source tree for source, leaf do not join SPT either
+
+## SSM
+
+* Subscribe to S,G with both source and group
+* IGMPv3
+* Only edge routers nearest host need SSM
+
+## v6 Multicast Pim
+
+* ipv6 multicast-routing - enables on all ints, assumes v6 PIM, always sparse
+* no ipv6 pim per int
+* Tunnels formed for routing
+* Show int tunnel shows pim/ipv6
+* show ipv6 pim neighbours - Formed with link locals, DRs still elected, values manipulated as per v4
+
+### DR priority manipulation
+
+* `ipv6 pim dr-priority <0-4294967295> - Higher is better`
+
+### PIMv6 hello
+
+* every 30s
+* When all neighbours replied, DR chosen
+ * Highest priority, then highest IP
+* Hold time 3.5 times hello
+* Auth with MD5 hash
+
+### IPv6 Sparse-Mode Multicast
+
+* For RP, static, v6 BSR and embeeded RP
+* Static as before
+
+## Multicast Listener Discovery
+
+* `ipv6 mld join-group ADDRESS`
+* Replaces IGMP
+ * v1 like IGMPv2
+ * v2 like v3, supports SSM
+* Queriers elected through MLD
+* ICMP messages carry inside, link local in scope, router alert option set
+* Three messages, query, report done
+ * Done like leave, triggers query to check more receivers on segment
+* Options - `ipv6 mld limit` limits number of recipients
+* ipv6 multicast-routing auto enables MLD
+
+## Embedded RP
+
+* RP part of m'cast group addr
+* Extra RP identity and uses it for shared tree immediately
+* Explcit config on device that is RP
+
+Accomplish with following rules
+* Always start with FF70::/12
+* Scopes are
+ * 1 - Int local
+ * 2 - link local 
+ * 4 - admin local 
+ * 5 - site local
+ * 8 - org local
+ * E - global
+* Isolated three values from RP
+ * RP Int ID, prefix length in hex, RP prefix
+ * `FF7<SCOPE>:0<RP Interface ID><Hex prefix length>:<64-bit RP prefix>:<32 bit group ID>:<1-F>`
+ * Eg, RP of 2001:2:2:2::2/64
+  * RP int is 2 (taken from ::2)
+  * Prefix length 64 (40 in hex)
+  * RP prefix 2001:2:2:2
+  * Global scope
+  * 32 bit group ID commonly 0
+  * FF7E:0240:2001:2:2:2:0:1
+* Make sure router knows its an RP (ipv6 pim rp-address)
+* Use embedded for group joins on others
+
 # Processes
+
+## Sources sending packets to RP
+
+1. Source sends packet to RP
+2. RP sends m'cast packet to all routers/hosts in group, shared tree
+3. Routers with local hosts that IGMP join can join source specific S,G SPT
+4. Routers on same subnet as soure register with RP
+5. RP acces registration only if knows it is needed
+
+**With no requests**
+
+1. Hosts sends m'cast to group, router receives m'ast to same LAN
+2. Router sends PIM Register to RP
+3. RP sends unicast Register-Stop
+ * PIM register encaps first m'cast packet
+4. When register stop rx'd, 1m Register-Suppression
+5. 5s before timer expires, another register with Null-Register bit set, without encap'd packet
+ * Another register stop (back to 4)
+ * Doesn't reply, timer expires, R1 sends encap'd m'cast packets in PIM register
+
+## Completion of source registration
+
+1. Host sends m'cast to group
+2. Router encaps inside register
+3. RP de-encaps and sends
+4. RP joints SPT, PIM-SM Join for group S,G to source
+5. When source router receives Join, forwards traffic to RP
+6. RP sends unicast Register-stop 
+
+## SPT Swithcover
+
+1. Source sends m'cast to first hop
+2. First hop to RP
+3. RP to router in shared tree
+4. PIM-SM Join out preferred int (if better unicast path than RPF to RP)
+5. First hop router places another int in forwarding
+
+**J flag (join)** - traffic switches from RPT to SPT
 
 # Config
 
@@ -204,3 +520,127 @@ int Gi1/0/0
  ip pim sparse-mode
  ip igmp mroute-proxy lo0 <--- Allows forwarding of IGMP reports to an interface with the ip igmp proxy-service, for all (*, G) groups
 ```
+
+## AutoRP
+
+**Mapping Agent**
+
+```
+ip multicast-routing
+
+ip pim send-rp-discovery scope 10
+
+int Se0
+ ip pim sparse-mode
+```
+
+**RP**
+
+```
+int lo0
+ ip address 10.1.10.3 255.255.255.255
+ ip pim sparse-mode
+
+int Se0
+ ip pim sparse-mode
+
+ip pim send-rp-announce loopback0 scope 10
+```
+
+## BSR
+
+**BSR**
+```
+ip multicast routing
+
+int lo0
+ ip pim sparse-mode
+
+int Se0
+ ip pim sparse-mode
+
+ip pim bsr-candidate lo0 0 # 0 is priority, default
+```
+
+**RP**
+
+```
+ip multicast-routing
+
+int lo0
+ ip pim sparse-mode
+
+int Se0
+ ip pim sparse-mode
+
+ip pim rp-candidate lo0
+```
+
+## MSDP
+
+```
+int lo2
+ ip address 10.1.10.3 255.255.255.255
+ ip pim sparse-mode
+
+ip multicast-routing
+
+ip pim rp-candidate lo2
+ip pim msdp peer 172.16.1.1
+```
+
+```
+int lo0
+ ip address 172.16.1.1 255.255.255.255
+ ip pim sparse-mode
+
+ip multicast-routing
+ip pim rp-candidate lo0
+ip msdp peer 10.1.10.3 connect-source Lo0
+```
+
+## SSM
+
+```
+ip multicast-routing
+ip pim ssm {default | range ACL} - Default is 232.0.0.0/24
+
+int Fa0/0
+ ip pim sparse-mode
+ ip igmp version 3
+```
+
+## IPv6 BSR
+
+```
+ipv6 pim bsr candidate bsr 2001:2:2:2:2::2
+ipv6 pim bsr candidate rp 2001:1:1:1::1
+ipv6 pim bsr candidate rp 2001:3:3:3::3
+```
+
+
+# Verification
+
+```
+show ip msdp peer
+
+show ip pim rp
+
+show ip igmp snooping
+
+show ip pim rp mapping
+
+show ipv6 pim bsr rp-cache - shows cache from RPs
+
+show ipv6 bsr candidate-rp
+
+show ipv6 pim interface
+
+show ipv6 mld interface
+
+show ipv6 pim traffic
+
+show ipv6 pim group-map
+```
+
+
