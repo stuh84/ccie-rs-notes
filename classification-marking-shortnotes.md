@@ -37,9 +37,10 @@
 * RFC2475 defines these
 * IPP compatible
 
+
 |Name|DSCP Binary|IPP Binary|IPP Name|
 |----|-----------|----------|--------|
-|Default/CS0|000000|000|Routine|
+|Default CS0|000000|000|Routine|
 |CS1|001000|001|Priority|
 |CS2|010000|010|Immediate|
 |CS3|011000|011|Flash|
@@ -56,7 +57,9 @@
 * Higher x - better treatment
 * Higher y - worse drop treatment
 
+
 |Queue|AFx1/Decimal/Binary|AFx2|AFx3|
+|-----|-------------------|----|----|
 |1|AF11/10/001010|AF12/12/001100|AF13/14/001110|
 |2|AF21/18/001010|AF22/20/010100|AF23/22/010110|
 |3|AF31/26/011010|AF32/28/011100|AF33/30/011110|
@@ -231,6 +234,7 @@ policy-map map-cos-to-dscp
  * So long as device is trusted to make markings
 
 Traffic Recommendations
+
 |Type|CoS|IPP|DSCP|
 |----|---|---|----|
 |Voice Payload|5|5|EF|
