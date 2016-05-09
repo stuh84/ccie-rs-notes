@@ -5,6 +5,20 @@
 * Update - info
 * Notification - Error, takes neighbour down
 
+## Update
+
+|Description|Size|
+|-----------|----|
+|Length in bytes of Withdrawn routes|2 bytes|
+|Withdrawn routes|Variable|
+|Length in bytes of PA section|2 bytes|
+|PA|Variable|
+|Prefix Length and Prefix Variable|2 bytes|
+|Above as many times as NLRI||
+
+* Withdraws inform neighbours
+* Separate updates if each NLRI with different PA
+
 # Timers
 
 * Hold Time - 180 by default
@@ -37,7 +51,56 @@
 
 * Network command - 0.0.0.0/0 must be in routing table
 * Redistribution - Requires `default-information originate`
-* Default originate - To neighbour, can be conditional, `neighbor X.X.X.X default-originate [route-map name]  
+* Default originate - To neighbour, can be conditional, `neighbor X.X.X.X default-originate [route-map name]` 
+
+## Routes
+
+* Don't include if routes aren't best, denied in filtering, and for iBGP, any IBGP learned routes (unless RR or Confed)
+* Without any routing policy usually goes Shortest AS_PATH, eBGP over iBGP, lowest IGP metric, lowest RID for iBGP
+* Next hop must be reachable
+ * next-hop-self
+ * next-hop-unchanged
+* Valid route within show ip bgp neighbor outputs means candidate for use
+
+## eBGP routes to IP routing table
+
+* Must be best
+* AD
+ * `distance bgp *external internal local*`
+ * `distance VALUE 192.168.0.0 0.0.255.255 [ip-standard-list] [ext-acl]`
+  * IP and Mask refer to neighbour, not next hop
+* Next Hop must be in routing table
+
+### Back Door
+
+* Makes BGP local route (AD 200)
+* Not advertised by BGP downstream
+
+## iBGP routes to IP Routing Table
+
+* BGP Sync as well as other requirements (sync disabled means same as eBGP)
+* Static routes dont work with sync
+* When sync used with OSPF, OSPF RID must match BGP RID of advertising route
+
+## Confeds
+
+* RFC 5065
+* Confed AS path for loop prevention
+* Confed eBGP - TTL normal, NEXT_HOP retained
+* Confed ASs not used outside Confed (i.e. AS Path length)
+ * Removed on exit
+
+## RRs
+
+* Clients and non clients unaware of RR
+
+**Rules for advertisement**
+
+|Route from|To client|To Nonclient|
+|----------|---------|------------|
+|Client|Yes|Yes|
+|Non-client|Yes|No|
+|eBGP|Yes|Yes|
 
 
 # Processes
@@ -65,4 +128,22 @@
 * RID not same
 * MD5 must pass
 
+# Attributes
+
+## Origin
+
+* IGP, EGP, Incomplete
+ * I - Network, default-originate, aggregate (if as-set not used, or if all components of as-set i)
+ * ? - Redist, agg (at least one component ?), default-information originate
+
 # Config
+
+## Confederations
+
+```
+router bgp 65001 <--- SUB-AS
+ bgp confederation identifier AS <--- Real AS
+ bgp confederation peers SUB-AS <--- What other ASs are in confed
+```
+
+
