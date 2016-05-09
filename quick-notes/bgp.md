@@ -46,6 +46,8 @@
  * Update source when advertised
 * To eBGP peer, ASN prepended to AS_SEQ
 * Suppress Map used to advertise component routes
+ * Route-map, any subnets with route-map permit suppressed
+ * Suppressed in advertisement only
 
 ## Defaults
 
@@ -164,6 +166,80 @@
 * IGP, EGP, Incomplete
  * I - Network, default-originate, aggregate (if as-set not used, or if all components of as-set i)
  * ? - Redist, agg (at least one component ?), default-information originate
+
+# Filtering
+
+* Peer groups process update once, not per peer
+* Cannot apply to single neighbour in group
+* Matching logic on BGP update
+* Distribute list
+ * Standard ACL - Matches prefix and wildcard mask
+ * Extended ACL - Prefix, length and wildcard mask
+* Prefix list - Exact or first N of prefix, and range of lengths
+* Filter list - AS paths
+* Route MAP - Prefix, length, AS-PATH, PAs
+ * Deny filters route, deny in ACL doesn't match route
+
+## AS PATH filtering
+
+* AS_SEQ most common, first ASN most recent
+* AS_SET comma delimited, enclosed with `{}`
+* AS_CONFED_SEQ space, enclosed with `()`
+* AS_CONFED_SET comma, enclosed with `{}`
+
+## Regex
+
+* Regex of first line applied to each
+* Permit or deny
+* Implicit deny
+
+```
+^ - Start of line
+$ - EOL
+| - Logical OR
+_ - Any delimiter (blank, comma, SOL, EOL)
+. - Any character
+? - Zero or one
+* - Zero or more
++ - One or more
+(string) - Single entity
+[String] - Wildcard for any single character
+{} - Amount of matches
+```
+* First item matched, rest of path sequentially
+* Match AS_CONFED with [(] and [)], brackets are regex characters otherwise
+
+## Decision process
+
+* Well known - Supported by every BGP implementation
+* Optional - Opposite of above
+* Mandatory - Has to be in update
+* Discretionary - Not required in update
+* Transitive - Silently forwarded, even if unknown to self
+* Nontransitive - Remove and do not propagate
+
+* Well known mandatory - AS-PATH, NEXT_HOP, ORIGIN
+* Well known discretionary - ATOMIC_AGGREGATE
+* Optional Transitive - Aggregate
+* Optional Nontransitive - ORIGINATOR_ID, CLUSTER_LIST
+
+1. Next hop reachable
+2. Weight - Highest
+3. Local Pref - Highest
+4. Locally injected (network, redistr, or summarization)
+5. AS Path - Shortest, bgp bestpath as-path ignore
+6. Origin - IGP > EGP > ?
+7. MED - Smallest
+8. Neighbour type - eBGP > iBGP
+9. IGP Metric
+10. Oldest route
+11. Smallest neighbour RID (if bgp bestpath compare-routerid configured)
+12. Smallest neighbour ID (two relationships to same router to pass 11)
+
+* Multiple routes into table after 9
+* Even if multiple added, best path advertised only
+
+
 
 # Config
 
