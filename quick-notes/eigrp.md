@@ -250,9 +250,19 @@
 * Allows hubs to advertise multiple equal-cost routes
 * Might require max paths
 * Split horizon disabled
+* Can advertise up to 4 additonal paths
+* Only in named config
 * Variance must be 1
 * no next-hop-self (require NH)
 * no-ecmp-mode - Deactivates internal optimization, walks over all equal costpaths, any routes successors shoudl be reachable over int which route going to be readv, only applies to successor, not additional entires
+
+**Bandwidth Pacing**
+* By default uses max 50% of config'd bw on int
+* `ip bandwidth-percent eigrp ASN VALUE`
+
+**Route tag enhancements**
+* Can be assigned as dotted decimal
+* Can filter routes using a wildcard mask because of this
 
 **Stub**
 * Configured on spokes
@@ -289,6 +299,8 @@
 * Classic only allows GS on v6 process
 * v4 is shutting down ints, passive or network statements
 * In named,all
+
+
 
 **Auth**
 * MD5 since start
@@ -376,6 +388,19 @@ router eigrp CCIE
   remote-neighbours Source Gi0/0 unicast-listen lisp-encap
    network 10.0.1.1 0.0.0.0
    network 192.0.2.31 0.0.0.0
+```
+
+## Route Tag filtering
+
+```
+eigrp default route-tag
+
+route-tag notation dotted-decimal
+
+route-tag list NAME {deny | permit | seq NUM { deny | permit }} tag-dotted-decimal mask
+
+route-map
+ match tag list
 ```
 
 # Verification

@@ -35,6 +35,7 @@
 * NHRP Shortcut - Overwrites CEF info on spoke (configure on spoke and hub)
 * Make sure `no ip split-horizon eigrp ASN` on for spoke to spoke
 * No need for no ip next-hop-self, as NHRP will redirect regardless
+* Packet still send to hup unless IPSec session comes up
 
 * Routes go in as NHRP routes
 

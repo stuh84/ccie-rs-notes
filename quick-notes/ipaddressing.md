@@ -13,6 +13,10 @@
 
 ## IPv6
 
+### General Prefix
+
+* Defined, like a summary, changes to general affect more specific
+
 ### Extension headers
 
 * Next Header field indicates if more
@@ -190,6 +194,15 @@ int Fa0/0
 ```
 
 **PAT** - Add overload to above command
+
+## General prefix
+
+```
+ipv6 general-prefix NAME prefix/length|6to4 INT
+
+int e0/0
+ ipv6 address PREFIX-NAME sub-bits/length
+```
 
 # Verification
 

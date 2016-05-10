@@ -10,6 +10,27 @@
 
 * DSAP and SNAP
 
+## CAM Aging
+
+* mac-address-table aging-time SECONDS vlan 10
+* default 300, 0 to 1000000 seconds
+
+## Fallback bridging
+
+* Grouping of svis and/or routed ports
+* BPDUs and traffic not exchanged bw different groups on switch
+* Switch vreates VLAN bridge STP instance
+* used to bridge locally separate entities together
+* Source mac only learn on a bridge gorup when address learnedon a vlan
+* Each bridge participates in different STP instance
+* 32 per switch
+* Int can only be in one
+* All protocols except ipv4, v6, arp, rarp, loopback and fr arp fallbac briudged
+
+## Backup interface
+
+* int Gi1/0/24 .... media-type {sfp | rj45} autofailover
+
 ## SPAN, RSPAN, ERSPAN
 
 * SPAN - local

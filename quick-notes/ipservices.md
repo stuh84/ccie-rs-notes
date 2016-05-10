@@ -90,6 +90,20 @@
 
 * Can measure delay, jitter, packet loss, sequencing, path, connectivity, download type and MOS
 
+### Probes
+
+* active, synthetic traffic
+* visibility of processing time on device vs transit or on wire
+* Near ms precision
+
+* SNMP traps based on threshold/trigger condition
+* Histortical data storage
+* Set a target with ip sla responder, adds in/out timestamps in payload, measuring cpu time
+* ICMP Path echo - traceroute first, then measures responde from each hop, path jitter similar
+* UDP Jitter - per direction jitter
+* Time sync required
+* Shadow router - dedicate source of IP SLA measurement
+
 ## RITE
 
 * Exports packets to VLAN or LAN
@@ -200,6 +214,12 @@
  * Flow exporter
 * Configure flow record, specify fields, exporter sends to dest
 * Then flow monitor, class map, policy map with 1 or more classes, then apply to int
+
+## Enhanced Object Tracking
+
+* Tracking using boolean (track NUMBER list BOOLEAN)
+* Threshold weights
+* Can track ip route reachability or metric threshold, resolution, timer
 
 # Processes
 

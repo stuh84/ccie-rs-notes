@@ -104,6 +104,15 @@ int Fa0/0
 * Authenticator - EAPoL/RADIUS trans, enables/disables ports
 * Auth server - Stores creds, verifies rad essages
 
+## Mac Auth Bypass
+
+* For devices without 802.1x capabilities
+* Supplmental auth method using EAP
+* Migration from port security, VRT and/or VPMs
+* 802.1x tries 3 EAP requests sent, if failed, guest VLAN
+ * MAB works on this, dynamic policy from RADIUS detailing VLAN if allowed
+
+
 ## General L3 Considerations
 
 * Smurfs - Lots of ICMP echos, dest IP is subnet broadcast, avoid with no ip direct-broadcast

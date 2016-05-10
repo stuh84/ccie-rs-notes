@@ -140,6 +140,10 @@
 
 **Stubby**
 * ABR with highest RID performs type 7 to 5 translation
+ * When router forced to pick forward address for type 7, preference to routers internal address, otherwise routers active stub network address
+ * avoids extra hops that may happen when transit networks address used
+ * Forward Address seen in LSA Output
+ * Newest enabled OSPF loopback IP, then newest enabled non loopback for transit stub
 * NSSA does not default auto gen, `area ID nssa default-information-originate`
 * NSSA-TS does
 
@@ -147,6 +151,14 @@
 * DV bw areas
 * Split Horizon for many LSA types - makes sure info from LSA not adv into one nonbackbone and back into backbone
 * No inter-area routes form nonbackbone to backbone (so no transit to backbone via nonbackbone)
+
+## Demand Circuit
+
+* suppressed periodic hellos and LSARefresh
+* DC option bit exchanged
+ * If neg'd, sets bit in LSA age called DoNotAge
+ * LSARfresh - only sent on TC or router that doesn't understand it
+* If ABR sees router that cannot process demand cricuits, tells originating router to not set DNA bit
 
 ## Filtering
 
@@ -345,6 +357,29 @@
 * Hellos adv as 0
 * Dead interval must be consistent on segment
 
+## Flooding Reduction
+
+* ELiminates need for LSA refresh
+* Does not suppress hellos
+* All routers still need to support demand circuits
+* `ip ospf flood-reduction`
+
+## MAX LSA
+
+* Limit non-self genned LSAs with max-lsa NUMBER
+
+## Redistribution
+
+* redistribute maximum-prefix NUMBER PERCENT-THRESHOPLD [warning-only]
+
+## LSA Pacing
+
+* Instead of refreshing moment half life age, awaits pacing interval to group several LSas
+* Usually short than 30m, default 240s
+* timers pacing flood lsa-group retransmission
+* Retrans - every time router needs to retransmis unack'd LSA, waits to group
+* Flood - Similar except controls interface LSA flood list - pacing on an int, grouping what could go on int, default 33ms, retrans 66ms
+
 # Processes
 
 ## Neighbourship
@@ -428,7 +463,12 @@ int Gi0/0
 router ospf 1
  area 0 virtual-link x.x.x.x key-chain NAME
 ```
+## Demand circuit
 
+```
+int Se0
+ ip ospf demand circuit
+```
 
 # Verificaiton
 

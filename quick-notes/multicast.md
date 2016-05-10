@@ -414,6 +414,9 @@
  * Done like leave, triggers query to check more receivers on segment
 * Options - `ipv6 mld limit` limits number of recipients
 * ipv6 multicast-routing auto enables MLD
+* Can have :: unspecified addr as source in MLD report, if it has no valid link-local
+* SLAAC node require dto join several groups to perform duplicate address detection
+ * prior to this, only address is tentative, hence :: possible as source
 
 ## Embedded RP
 

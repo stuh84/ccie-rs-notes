@@ -83,3 +83,18 @@ int Se0/0
 ipv6 router rip 1
  poison-reverse
 ```
+
+## Per neighbour AD
+
+```
+distance VALUE IP MASK ACL
+```
+* Make mask 0.0.0.0 and IP as neighbour IP
+
+## Conditional Default routing
+
+```
+default-information originate route-map NAME
+```
+* Set interface on route map sets interface adv out
+* Use SLA and static route for reliability
