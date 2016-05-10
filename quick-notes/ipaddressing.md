@@ -111,6 +111,19 @@
 * Allows for Inside/Outside assymetry
 * Works with some ALGS
 
+## Reversible NAT
+* Allows comms from outside to inside, after initiation of inside to outside
+* `ip nat inside source route-map NAME pool NAME reversible`
+
+## NAT Virtual INT
+* Removes requirement for inside outside config on different ints
+* `ip nat enable` on interface, nat on a stick
+* Dynamic has pools, staticdoesnt
+
+## Extendable NAT
+* Allows one source, multipel translations
+* Can be used for accessing different internet conenctions 
+
 # Processes
 
 # Config
@@ -284,8 +297,16 @@ show nat64 logging
 show nat64 prefix stateful
 show nat64 timeouts
 ```
+
 ## Stateful NAT
 
 ```
 show ip snat distributed verbose
+```
+
+## Extendable NAT
+
+```
+ip nat inside source static 10.0.0.1 100.0.0.2 extendable
+ip nat inside source static 10.0.0.1 200.0.0.2extendable
 ```

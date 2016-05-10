@@ -196,6 +196,11 @@
 * Source + Dest Mac
 * VLAN Id on Tx and Rx frames
 
+### Top Talkers
+
+* Sorted by either total num of packets or total bytes
+* Does not require a collector, placed in a special cache
+
 ## EEM
 
 * Create applet
@@ -314,6 +319,22 @@
 * Answers suing perm/cached entries
 * No zone transfers
 * Will forward on if not zone authority and ip domain lookup enabled
+
+## ICMP Router Discovery Protocol (IRDP)
+
+* Allows hosts to locate routers as a gw to reach IP based devices on other networks
+* IRDP device as router, rotuer discovery apckets gen, as host rx'd
+
+## Other bits
+
+* Small-serevrs - small servers for diag usage, echo back from telnet sessions
+ * service tcp-small-servers
+ * service udp-small-servers
+* Chargen - gens stream of ascii (telnet X.X.X.X chargen)
+* Discard - throws away (telnet X.X.X.X discard)
+* Daytime - returns sysdate and tim (telnet X.X.X.X daytime)
+* UDP all byt day time
+
 
 # Processes
 
@@ -659,4 +680,62 @@ ip dns primary DOMAIN soa
  primary-server-name mail-box-name [refresh retry expire-ttl min-ttl]
 ip host NAME ns SERVER-NAME
 ip dns sppofing IP - responds to DNS queries with conf'd IP when queried for anything but itself
+```
+
+## Netflow top talkers
+
+```
+ip flow cache entries <1024-524288>
+ip flow cache timeout active mins VALUE <1-60, default 30>
+ip flow-cache timeout inactive (15s default, 10-600)
+
+ip flow-top-talkers
+ top num (1-200)
+ sort-by [bytes | packets]
+ cache-timeout MS
+ match source-address IP/NN|ip-mask
+```
+
+* show ip flow top-talkers
+
+## IRDP
+
+```
+no ip routing
+ip gdp irdp
+
+int Fa0/0
+ ip irdp
+ ip irdp multicast (sent to 224.0.0.1)
+ ip irdp holdtime NUM
+ ip irdp max-advert-interval NUM
+ ip irdp min-advert-interval NUM
+ ip irdp preference NUM
+ ip irdp address XXX num (address + pref to proxy advertise)
+```
+
+## ICMP Settings
+
+```
+[no] ip unreachables
+ip icmp rate-limit unreachable [df] ms
+ip redirects
+ip mask-reply - can send mask of network
+```
+
+## TCP performance parameters
+
+```
+ip tcp syn-wait-time SEC (default 30s)
+ip tcp path-mtu-discovery [age-timer {minutes|ifninte}] - default 10 mins
+ip tcp selective-ack - Allows acking multiple packets in window (some lost, not all)
+ip tcp timestamp
+ip tcp chunk-size characters - max read size for telnet or rlogin
+ip tcp window-size BYTES <--- must be more than 65535 for scaling support, otherwise 4128 default
+ip tcp ecn
+ip tcp queuemax packets
+
+int Fa0/0
+ ip tcp adjust-mss SIZE
+ ip mtu BYTES
 ```
