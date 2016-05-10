@@ -13,6 +13,13 @@
 
 ## IPv6
 
+### Extension headers
+
+* Next Header field indicates if more
+* Each EH can refer to upper layer or next
+* Includes Basic v6 header, hop by hop, destination options, routing header, AH, ESP, frag header, mobnility header etc etc
+* Can be matched by ACLs
+
 ### Stateful DHCP
 
 * Multicasts to FF02::1:2

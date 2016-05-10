@@ -78,6 +78,16 @@
 
 * Classify on ingress only, mark on egress only
 
+## Bandwidth Delay Product
+
+* Product of capacity and round trip delay
+* Equiv to max data amount on a circuit at any given time
+* long fat network - 12500 bytes or more
+ * High bw, not great delay
+ * geosatellite for example
+* TCP Window scaling can help (send more bandwidth before requiring ack)
+* Calc with bw x round trip
+
 ## MQC
 
 * All MQC tools "Class Based"

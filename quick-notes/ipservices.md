@@ -133,8 +133,59 @@
 * Done in tempalte, takes down until network stablisies
 * Can auth with key chains
 
-## Slow timers
+### Slow timers
 * For control packet,s can bring down timers, for checking liveliness when echo mode enabled
+
+## Netflow
+
+**v5**
+* Packet format fixed
+* Flows calced in int ingress
+* Outbound based on inbound of other ints
+ * Needs to be on all ints
+* Ingress int (snmp index), source ip, dest ip, ip proto, source + dest port, IP ToS
+
+**v7**
+* Exclusive to Netflow feature card
+
+**v8**
+* Route Based aggregation
+
+**v9**
+* Dynamic format
+* egress flows
+* Uses templates
+* Supports m'cast, IPSec, MPLS
+* Sampled netflow support
+* Can send BGP next hop info (peer or origin AS as well as next hop)
+* IP TTL field from IP Header
+* ID field
+* Packet elngth
+* ICMP type and code
+* Source + Dest Mac
+* VLAN Id on Tx and Rx frames
+
+## EEM
+
+* Create applet
+* Syslog event detector
+* Variables
+* Point to TCL script
+* Runs EEM policy when specified event occurs
+ * System - cisco policy
+ * User - User defined, eg event manager policy FILENAME
+* Can detect cli events, coutners, track objects, int counters, OIR, resource events, app events, SNMP, syslog, timer, watchdog
+* Core event publishes to EEM server, event subscriber
+* EEM Policy director receives from EEM applet and EEM script
+
+## NTP
+
+* SNTP - client only, cannot provide time
+* v4 has DNS support for ipv6
+* v4 allows mc'ast for v6 NTP sync
+* No sync to servers not already sync'd
+* NTP Leap - only allowed within month before leap is to happen
+
 
 # Processes
 
