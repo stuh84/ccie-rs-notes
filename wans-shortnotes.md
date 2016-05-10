@@ -131,6 +131,7 @@ int multilink 1
 * When ATM-FR interworking used, MLPS must be used, so all payload compression types supported by PPP supported for interworking
 
 |Feature|Stack|MPPC|Predictor|
+|-------|-----|----|----------|
 |Uses LZ|Yes|Yes|no|
 |Predictor|No|no|Yes|
 |HDLC|Yes|no|no|
@@ -155,12 +156,13 @@ int multilink 1
  * All flows compressed when added
 
 * MQC
+
 ```
 policy-map cb-compression
  class voice
   bandwidth 82
   compress header ip rtp
- class critical 
+ class critical
   bandwidth 110
   compression header ip tcp
 
@@ -209,7 +211,7 @@ int Fa0/0
 ### Client Config
 
 ```
-int dialer 1 
+int dialer 1
  dialer pool 1
  encapsulation ppp
  ip address negotiated
