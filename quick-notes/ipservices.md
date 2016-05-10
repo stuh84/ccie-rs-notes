@@ -201,6 +201,27 @@
 * Sorted by either total num of packets or total bytes
 * Does not require a collector, placed in a special cache
 
+### Aggregation cache
+
+* Agg of Netflow export records
+ * reduces bw
+ * reduces number of collection workstations
+* Many different schemes (grouped flows)
+* Can configure each agg cache with individual cache size, cache ager timeout parameter, export dest IP addr and UDP port
+* Default cache size 4096 bytes
+* Five available are AS Agg Cache, Dest Prefix, Prefix, Protocol port, Source prefix
+* Type Of Service Router
+ * Agg feature introduced, all of which include ToS byte as one of fields
+ * All of the above, mentioned but with Type of Service
+
+## IOS Menus
+* Each item is single user command
+* Standard 24 line by 80 col size
+* No more than 17 items
+* 10 or more items - single spaced (use menu single-spaced to set this)
+* Numbers, letters, strings (strings require menu line-mode
+* Requires menu-exit command
+
 ## EEM
 
 * Create applet
@@ -333,7 +354,26 @@
 * Chargen - gens stream of ascii (telnet X.X.X.X chargen)
 * Discard - throws away (telnet X.X.X.X discard)
 * Daytime - returns sysdate and tim (telnet X.X.X.X daytime)
-* UDP all byt day time
+* UDP all but day time
+* Finger - shows whos logged into router, tcp 79
+ * service finger
+ * no ip finger
+
+## IP Event Dampening
+
+* Suppresses effect of interface flapping
+* Removes int from network until it stops flapping
+* Exponential delay mechanism
+* Suppress Treshold - accumulated penalty that triggers router to dampen int
+* Half life period - how fast pentalty can decay (by half each period), 1-30, default 5s
+* Reuse threshold - 1-20000, default 1000
+* Max Suppress Time - 1-20000s, default 20s (i.e. 4x default half life)
+* Connected and static routes not in routing table for dampening ints
+
+## Conditional Debugs
+* Debugs on packets in or out, on a specified int
+* Can also be all that meet a condition
+* Works on debug aaa {aaa | autheorization | authentication}, debug dialer, debug isdn, debug modem, debug ppp
 
 
 # Processes
@@ -738,4 +778,91 @@ ip tcp queuemax packets
 int Fa0/0
  ip tcp adjust-mss SIZE
  ip mtu BYTES
+```
+
+## Dampening
+
+```
+int Fa0/0
+ dampening [half-life reuse] [ suppress max-suppress [restart-penalty]] --- restart penalty, when router restarts
+```
+
+* show dampening int
+* show int dampening
+
+## Conditional Debug
+
+```
+debug condition interface INT
+debug condition { username NAME | called DIAL-STRING | caller DIAL-STRING}
+```
+
+* show debug condition
+
+## Smart Port Macros
+
+* Available are cisco-global, cisco-desktop, cisco-phone, cisco-switch, cisco-router
+
+```
+show parser macro [brief]
+macro global apply cisco-global
+int Fa0/0
+ macro aply cisco-desktop $AVID vlan
+ macro aply cisco-phone $AVID vlan
+ macro aply cisco-phone $VVID vlan
+
+macro apply cisco-switch $NVID vlan
+```
+
+**Create own**
+```
+macro name NAME --- 3000 characters long
+# for comments
+@ ends it
+dont use exit or end
+macro keywords word1 word2 word3
+```
+
+## IOS Menus
+
+```
+menu NAME title D TITLE d (d = delimiter, usually %, /, " or ')
+menu NAME clear-screen - clears screen before running menu
+menu NAME prompt D PROMPT D
+
+menu NAME text ITEM-NUM text
+menu NAME command ITEM
+ resume [Conenction] /connect [string] - resume existing or create new
+
+menu NAME command ITEM resume/next
+
+menu NAME default ITEM - default if no user input
+```
+
+* For sub menus, create another menu then
+
+```
+menu NAME command ITEM menu NAME
+```
+
+* `menu-ext` exits to previous menu
+* `menu NAME command ITEM COMMAND` - do without text for hidden item 
+* menu NAME status-line
+* `menu NAME options ITEM pause`
+* `menu NAME options ITEM login`
+* `menu NAME invokes`
+ * Auto commandmenu under line auto invokes
+ * Can be done for a local u/n too
+
+## Remote Shell
+
+```
+ip rcmd remote-host LOCALUSER REMOTE-HOST REMOTE-USER
+ip rcmd remote-host LOCALUSER ACL REMOTE-USER
+ip rcmd source-interface INT - for outgoing requests
+no ip rcmd domain-lookup
+ip rcmd rsh-enable
+ip rcmd remote-host LOCALUSER [ip|host] remote-uiser [enable LEVEL]
+rsh ip/host {/user NAME} remote-command
+ip rcmd rcp-enable
 ```

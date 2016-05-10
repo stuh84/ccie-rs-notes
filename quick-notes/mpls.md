@@ -153,6 +153,46 @@ router ospf 1 vrf NAME
  area 1 sham-link SADDR DADDR COST number
 ```
 
+## VRF for v4 and v6
+
+```
+vrf definition NAME
+ address-family ipv4
+ address-family ipv6
+
+int Fa0/0
+ vrf forwarding NAME
+
+vrf upgrade-cli - makes VRFs multi AF aware
+```
+
+## MPLS Host Routes
+
+````
+mpls ldp label
+ allocate global host-routes
+```
+
+## MPLS Auto Config
+
+**OSPF**
+```
+router ospf 1
+ mpls ldp autoconfig [area ID]
+```
+
+* Disable per interface with `no mpls ldp igp autoconfig`
+* show mpls ldp discovery [detail]
+
+**ISIS**
+```
+router isis
+ mpls ldp autoconfig [level-1 | level-2]
+```
+
+* As before to remove
+* show isis mpls ldp
+
 # Verification
 
 ```

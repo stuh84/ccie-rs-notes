@@ -483,6 +483,11 @@ Accomplish with following rules
 * First hop router must translate from b'cast to m'cast
 * Last hop vice versa
 
+# RP and MA Placement
+* In hub and spoke, no asserts from MP neighbours, as do not see leaves
+ * Use ip pim nbma and sparse mode
+* MA can't be behind spoke, due to split horizon
+
 # Processes
 
 ## Sources sending packets to RP

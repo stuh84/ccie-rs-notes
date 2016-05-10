@@ -343,6 +343,10 @@
 * Dist list in - permitted as normal, denied ignored for Updates, Replies and SIA replies. Queries and SIA-Queries not influenced
 * Offset lits - add metrics, adds to delay metric, any route not mathced unchanged, in or out and match interface
 
+## v6 VRFs
+
+* Named mode only
+
 # Processes
 
 # Config

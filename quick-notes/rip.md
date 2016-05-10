@@ -31,6 +31,14 @@
 * With auth, 24 routes instead of 25 per update (20 bytes for auth)
 * Offset lists add to metric, before or after update
 
+## Masks
+
+* RIPv1 would send out route with no mask
+* Incoming interface assumes mask of rx'd interface
+
+## V2 NH
+* Next hop of 0.0.0.0 in packet means user touer that sent update as NH
+
 ## RIPng
 
 * UDP 521
@@ -98,3 +106,10 @@ default-information originate route-map NAME
 ```
 * Set interface on route map sets interface adv out
 * Use SLA and static route for reliability
+
+## Send and RX versions
+
+```
+int Fa0/0
+ rip send version [1] [2]
+ rip receive version [1] [2]

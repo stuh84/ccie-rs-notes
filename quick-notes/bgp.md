@@ -56,6 +56,11 @@
 * Redistribution - Requires `default-information originate`
 * Default originate - To neighbour, can be conditional, `neighbor X.X.X.X default-originate [route-map name]` 
 
+## Pre-best path community
+* Bases best path on cost comm
+* Lowest cost preferred
+* Disabled with `bgp bestpath cost-community ignore`
+
 ## Routes
 
 * Don't include if routes aren't best, denied in filtering, and for iBGP, any IBGP learned routes (unless RR or Confed)

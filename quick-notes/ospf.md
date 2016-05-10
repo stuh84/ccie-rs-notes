@@ -12,6 +12,7 @@
 * Dead 4 times hello default
 * LSRefresh default 30m
 * 60m Max Age
+* Wait - time to wait for DR and BDR to be advertised in neighbours hello before election, equal to RouterDead interval
 
 # Trivia
 
@@ -386,6 +387,21 @@
 * For FA (forward address) to be used, int wher third party next hop should be in OSPF with network command, and not P2P or P2MP
 * Maintained throughtout OSPF domain due to type 5 flooding
 * 3rd Party Next Hop - explicit NH, not implicit deviced by sending router 
+
+## OSPF Network Types and NH processing
+
+* B'cast and NB - no modification
+* P2P, NBMA, P2MP - NH is advertising router
+
+|Type|Default For|DR/BDR|Notes|Unicast Nei|Timer|
+|----|-----------|------|------|----------|-----|
+|Broadcast|Ethernet and FDDI|Y|L3 to L2 resolution required|Not allowed|10/40|
+|NB|Multipoint FR|Y||Required|30/120|
+|P2P|T1, DS3, Sonet, P2P ints|N|Multicast dest, retrans LSA unicast, ignores mask|N|10/40|
+|P2MP|None, but best over NB|N|M'Cast to known neigh, L3-L2 res for DC'd nei only, endpoints as /32s||30/120|
+|P2MP-NB|None|N|Unicast rather than m'cast, ip routing to establish non-adj neigh|Req|30/120|
+
+* NB - default priority 1 (set to 0 for spokes)
 
 # Processes
 
