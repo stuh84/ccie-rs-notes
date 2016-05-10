@@ -35,6 +35,23 @@
 * 0008.B40X.xxyy, X.xx (10 bit GLBP number), YY per router
 * 1024 groups per int
 
+## IPv6 FHRP
+
+### HSRP
+
+* v2 required
+* RAs advertised available devices to hosts
+* RSs ask for RAs
+* RAs periodically m'cast
+* Periodic RAs for int link local stop after final RA sent, while at least one virtual IPv6 link local addr conf'd
+* MAC of 0005.73a0.0000
+* UDP port 2029
+
+### VRRP
+* FF02:0:0:0:0:0:0:12
+* IP Proto 112
+* v3 allows ms timers
+
 ## NTP
 
 * NTP client mode on most routers/switches
@@ -221,6 +238,83 @@
 * Threshold weights
 * Can track ip route reachability or metric threshold, resolution, timer
 
+## KRON
+
+* Scheduler
+* Clock must be set
+* Use of conditional means executions tops if error occurs
+
+## Autoinstall over LAN
+
+* Staging router - Must have IP helper on for DNS and TFTP
+* Default router - One that Autoinstall requests go to
+* Config files - Host specific ("hostname-config.cfg"), default ("router-config"), network ("network-config")
+ * Order - network-config, cisconet.cfg, router-config, router.cfg, ciscortr.cfg
+* DHCP Server sends siaddr for TFTP in Autoinstall requests
+ * Name of file
+ * IP of TFTP server
+ * Hostname of TFTP server
+ * IP of DNS servers
+ * IP of staging router
+* RARP 
+ * RARP requests link local MAC to RARP server
+ * Needs to be DC'd to RARP server for Auto install
+
+## Debug Sanity
+
+* Every buffer used, sanity checked when allcoated and when freed
+
+## Buffer Tuning
+
+* show buffers
+* buffer middle permanent value
+* buffer middle min-free percent
+* buffer middle max-free percent
+* Reserves buffers on certain platforms
+
+## DHCP On Demand Pool
+
+* ODAP Server
+ * Grants addresses as subnets
+ * can config size of subnets w prefix length
+ * When 1 runs out, another dynamically created
+ * Binding tracks use
+  * Associated with ODAP manager
+  * Binding destroyed when not in used and rreturned to pool
+* ODAP manager
+ * Allcoates DHCP addesses from DHCP ODAP server out to ODAP client
+ * Requests new from server
+* Client - Normal client
+* DHCP ODAP can work with VPn to assign some sbnets to different VRFs
+
+## DHCP Server Radius Proxy
+* Address allocation with radius auth of leases
+* Supports DHCP option 60 and 121
+* Passes client info to radius
+* Response with all required attributes
+* Server translates them to options
+* Binding synced after Radius auths client
+* Can assign from local pool and auth pool for different clients
+* Enhancement allows classmane and other optional info (session-timeout, session duration etc)
+
+## DHCP Info Option 82
+* relay goes in as giaddr, saying choice of pool
+* Option 82 refines, slects sub range of pool
+* DHCP snooping use zero for giaddr
+* Can be used to define classes
+
+## DHCP Authorized Arp
+* Disables dynamic arp learning on int
+* Limitation in supporting accurate 1 minute billing
+* Static config overrides auth arp
+
+## Cisco Authorative NS
+
+* Listens on port 53
+* Answers suing perm/cached entries
+* No zone transfers
+* Will forward on if not zone authority and ip domain lookup enabled
+
 # Processes
 
 ## WCCP
@@ -242,6 +336,7 @@
 
 ## DHCP Server
 
+
 ```
 int eth1 
  ip address 10.1.1.1 255.255.255.0
@@ -259,6 +354,7 @@ ip dhcp pool subnet1
 ## NTP
 
 **Server**
+
 ```
 int Fa0/0
  ntp broadcast
@@ -387,3 +483,180 @@ router bgp 49182
 
 ip route static bfd <mh-dest> <mh-source> [unassociate]
 ``` 
+
+## Config Archive, Replace and Rollback
+
+* Can be files in flash, filestores, can now be in archive
+
+```
+archive
+ path URL <-- disk0:myconfig for example
+ maximum <1-14> -- default 10
+ time-period TIME - optional, auto saves, in minutes
+```
+
+* archive config - exec command
+* configure replace URL [nolock] [list] [force] [ignorecase] [reverttrigger [error] [timer mins]] [time mins]
+ * List - displays list of commands being applied
+ * Force - w/o prompt
+ * Time - must enter config confirm in this time, or auto reversed
+ * Nolock, prevents lock of running config to other uses during operation
+* configure revert { now | timer { minutes | idle MINs}}
+* show archive
+
+## KRON
+
+```
+kron policy-list NAME [conditional]
+ cli COMMAND
+
+kron occurence NAME [username] {in [[numdays:]numhours]nummin | at hours:min[[mount[day-ofmonth]} {oneshot | recurring | system-startup}
+ policy-list name
+```
+
+* show kron schedule
+
+## Autoinstall
+
+**LAN Config for staging rtr**
+```
+int Fa0/0
+ ip address ....
+ ip helper-address - separate for each server if required
+```
+
+**Cisco RARP server**
+```
+ip rarp-server ip
+arp 192.168.7.19 0800.0900.1834 arpa
+```
+
+**Cisco DHCP server**
+```
+service dhdp
+ip dhcp pool ID
+ host ADDR MASK/LENGTH
+ hardware-address ADDRESS TYPE
+ bootfile NAME 
+ or 
+ option 15 ip address - TFTP
+ or
+ next-server ADDRESS - siaddr
+ option 66 ascii NAME - tftp server name
+ default-router in
+```
+
+## TCP Keep alives
+
+```
+service tcp-keepalive [in] [out]
+```
+* For telnet
+
+## Coredumps
+
+```
+exception dump ip
+exception protocol FTP/RCP <---FTP requires FTP un and pw
+exception flash <PROCMEM|IOMEM|all> device <erase|no_erase>
+exception memory minimum SIZE
+exception memory fragment SIZE
+```
+
+## IPv6 HSRP
+
+```
+int Fa0/0
+ standby version 2
+ standy NUM upv6 {link-loc-addr | autoconfig}
+ standby NUM preempt
+ standby NUM priority
+```
+
+## VRRP v3 (for v4 and v6
+
+```
+int Fa0/0
+ vrrp NUM address family {ipv4 | ipv6}
+  address ADDR {primary | secondary}
+  description DEScf
+  match address <--- matches 2nd in advertsiement packet against conf'd addr
+  preemept delay min SEC
+  priority value
+  timers advertise MS
+  vrrpv2 - v2 compat
+  vrrs leader VRRS-LEADER-NAME
+```
+
+## DHCP ODAP
+
+```
+ip address-pool dhcp-pool
+
+int Fa0/0 
+ peer default ip address dhcp-pool NAME
+
+ip dhcp pool pool-name
+ vrf NAME
+ origin {dhcp | aaa | ipcp} [ subnet SIZE initial SIZE [autogrow SIZE]]
+ utilization mark low percentage
+ utilization mark high percentage
+```
+
+* Obtain with IPCP 
+
+```
+ip dhcp pool NAME
+ import all 
+ origin ipcp
+```
+
+## DHCP RADIUS PROXY
+
+```
+service dhcp
+aaa new model
+aaa group server radius NAME
+  server IP auth-port PORT acct-port PORT
+aaa auth network NAME group NAME
+aaa account network NAME start-stop group NAME
+
+int Fa0/0
+ ip addres ....
+
+ip dhcp use class [aaa]
+ip dhcp pool NAME
+ accounting NAME
+ auth NAME
+ auth shared-password STRING
+ auth username STRING
+```
+
+**Enhanced**
+
+```
+network number mask [secondary]/prefix length [secondary]
+class NAME
+address range START END
+```
+
+## DHCP Authorized Arp
+
+```
+int Fa0/0
+ arp authorized
+ arp timeout seconds {don't set less than 30s}
+```
+
+## Cisco Authorative NS
+
+```
+ip dns server
+ip name-server ADDRESS --- forwarders or other NS
+ip dns server quueue LIMIT {forwarder LIMIT}
+ip host [vrf NAME] [view NAME] hostname address
+ip dns primary DOMAIN soa
+ primary-server-name mail-box-name [refresh retry expire-ttl min-ttl]
+ip host NAME ns SERVER-NAME
+ip dns sppofing IP - responds to DNS queries with conf'd IP when queried for anything but itself
+```

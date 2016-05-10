@@ -51,6 +51,14 @@
  * show sdn prefer
 * set ip next hop, set int, set default ip, set default interface - Processed in this order of preference
 
+## IP Route Profile
+
+* Collects routing table statistics
+* `ip route profile`
+* Interval for stat collect set at 5s (fixed)
+* Collects Forward-Path change, Prefix-Add, Next-Hop Change, Path Count Change, Prefix Refresh
+* `show ip route profile`
+
 # Processes
 
 # Config

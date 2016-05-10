@@ -170,6 +170,17 @@
 * Need to change next hop if iBGP other network never knows to use it
 * GRE TTL decrements
 
+## Cost Community
+* Non-transitive
+* iBGP, not eBGP
+* can customize local pref
+* Locally sourced routes over routes from BGP peers usually
+ * Backdoor links preferred by bgp if learned first
+* Pre-best path point of insert for Cost Comm, supports VPN and backdoor mixed tpologies
+* Applied automatically to EIGRP routes redist'd into BGP
+* Carries route type and metric
+* Causes BGp to consider this before other comparison step
+
 # Processes
 
 ## Neighbour establishment
@@ -391,4 +402,15 @@ router bgp 65001
 
 ```
 bgp max-as limit NUMBER <--- As's above number, discards, 1-2000
+```
+
+## SoO
+
+```
+route-map NAME permit Seq
+ set extcommunity soo 100:1
+
+int E0/0
+ ip vrf forwarding VRF
+ ip vrf sitemap ROUTE-MAP
 ```

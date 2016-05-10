@@ -74,6 +74,45 @@
 * customer v6 prefixes in vrf
 * v6 labels and precies exchanged via VPNv6
 
+## Label filtering
+* Create ACL
+* Apply with `mpls ldp neighbour [vrf NAME] address labels accept ACL`
+* Will show in `show mpls ldp neighbor X.X.X.X detail` as ACL: 1
+* Inbound filtering
+
+## OSPF Sham Link
+
+* Must be in VRF
+* Must not be advertised by ospf or BGP
+* Must be /32 both sides (eg loopback)
+
+## MPLS VPN Performance Tuning
+* Used to take time with IGP in MP_BGP and scanner, now is instant
+* `neighbor x.x.x.x advertisement-interval VALUE` - default waits 5s, set to 0 to speed up
+* PE-BGP from VPNv4 to local VRF table - default 15s, can be 5-60s
+
+## EIGRP SOO
+
+* For partitioned EIGRP sites
+* SOO ext-comm on a backdoor router interface
+* Back door link cannot be alt path to reach prefixes in other parition
+* Unqie SoO per site, hence conf'd on all PEs and CEs that support same site
+* IDs routes originated from a site, to prevent advertising back to source
+* Can filter on SoO/per site basis
+ * Conf'd at int level
+* Conf'd on inbound BGP route map on PE, applied to int with `ip vrf site-map` config
+* Can work on back door links
+ * Define on interface of backdoor router
+ * Checked on eigrp update (or reply)
+* Process with EIGRP on PE/CE for each rx'd route that filters, based on following
+ * Rx'd route from BGP or CE rtr contains SoO that matches SoO on int
+ * prevents routing loops
+ * Rx'D route from a CE that does not match SoO value
+  * If route with SoO not matching, accepted
+  * If route already installed but different SoO, SoO from tpology used when redist to bGP
+ * No SoO
+  * from int appended
+
 # Processes
 
 # Config
@@ -106,6 +145,13 @@ router bgp 1000
   neighbor 1.1.1.1 activate
   neighbor 1.1.1.1 send-community extended
 ``` 
+
+## OSPF Sham Link
+
+```
+router ospf 1 vrf NAME
+ area 1 sham-link SADDR DADDR COST number
+```
 
 # Verification
 

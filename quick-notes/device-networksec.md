@@ -86,6 +86,16 @@ int Fa0/0
  * Check DHCP release, declines against binding - if IP not in table, filtered
  * Optionally, DHCP client hw add with source MAC
 
+### Information Option
+
+* Op 82 inserted when snooping enabled
+* Contains port client connected to
+* DHCP packets contain giaddr field of 0.0.0.0 by default
+* Both show up in error messages if something misconfig
+* Will be dropped going between switches
+* Avoid with `ip dhcp snooping information option allow-untrusted`
+ * Also `ip dhcp relay information trust-all`
+
 ## IP Soure Guard
 
 * Adds to DHCP snooping
@@ -220,6 +230,29 @@ int Fa0/0
 * When traffic denied, v6 glean tries to recover (Queries DHCP server or uses ND)
 * Recovers with DHCP_LEASEQUERY to server, DAD NS back
 * NA From host, DHCP LEASEQUERY_REPLY comes back
+
+## Control Plane Protection
+* Host, Transit, Cef Exception
+* CEF required
+* Can drop pacekts directed to closed or non-listening TCP/UDP ports
+* Can limit amount of packets in control plane input queue
+* IPv4 only
+* ACLs can't be applied to control plane subints direct (used with MQC policies)
+* Host - Destined for RTR or its own ints
+* Transit - s/w switched traffic
+* CEF - exception (ARP, LDP, L2 keepalives etc)
+* Apply a policy map to `control plane {host | cef exception | transit}`, service policy on next line
+
+## IP Source Tracker
+
+* enables tracking for dest addr on router
+* CEF entry created, punts to line card/port adapters CPU
+* `show ip source-track summary`
+* ip source-track address
+* ip source-track address-limit NUMBER
+* ip source-track syslog interval NUMBER
+* ip source-track export-interval NUMBER
+ * 30s default 
 
 # Processes
 
@@ -369,6 +402,53 @@ int Fa0/0
 ```
 
 * Doesn't work on etherchannel
+
+## SNMP CPU and Mem thresholds
+
+**SNMP**
+```
+snmp-server enable traps cpu threshold
+process cpu threshold type {total | process | interrupt}
+ rising PERCENT interval SECONDS [falling PERCENT interval SECONDS]
+process cpu statistics limit entry-perentage NUMBER [size SECONDS]
+```
+
+**Memory**
+```
+memory free low-watermark process threshold
+memory free low-watermark io threshold
+memory reserve critical KB
+```
+* Threshold = kbps free
+
+## MAC address notifications
+
+```
+snmp-server enable traps mac-notification
+mac-address table notification
+mac-address table notification interval 60
+mac-address table notification history-size 100
+
+int Fa0/4
+ snmp trap mac-notification added
+```
+
+* Genned for dynamic and secure, not self, m'cast or static
+
+## Config changes and logging
+
+```
+archive
+ log config
+  logging enable
+  logging size <1-1000>
+  hidekeys <-- suppress pw
+  notify syslog
+```
+
+* show archive log config NUM 
+* show archive log config all provisioning - shows how config chanegs would appear in config mode
+* show archive log config statistics  
 
 # Verification
 

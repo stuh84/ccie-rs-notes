@@ -39,6 +39,10 @@
 
 * Routes go in as NHRP routes
 
+### QoS
+
+* On the interface do `ip nhrp map group NAME service-policy out NAME`
+
 ## IPv6 Tunnelling
 
 * Auto 6to4 - Point to MP, 2002::/16 - Connects isolated v6 islands

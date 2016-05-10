@@ -380,6 +380,13 @@
 * Retrans - every time router needs to retransmis unack'd LSA, waits to group
 * Flood - Similar except controls interface LSA flood list - pacing on an int, grouping what could go on int, default 33ms, retrans 66ms
 
+## Third Party Next Hop
+
+* Picks it up from redist'd route (also from BGP, picks up last AS in AS_PATH as external route tag)
+* For FA (forward address) to be used, int wher third party next hop should be in OSPF with network command, and not P2P or P2MP
+* Maintained throughtout OSPF domain due to type 5 flooding
+* 3rd Party Next Hop - explicit NH, not implicit deviced by sending router 
+
 # Processes
 
 ## Neighbourship

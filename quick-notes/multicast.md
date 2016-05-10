@@ -446,6 +446,43 @@ Accomplish with following rules
 * Make sure router knows its an RP (ipv6 pim rp-address)
 * Use embedded for group joins on others
 
+## Multicast VLAN registration
+
+* Done for no multicast routing abilities
+* Routes packets from an M'cast source VLAN to one or more recipient VLANs
+
+## PIM NBMA Mode
+* Spokes don't usually hear each others messages
+* PIM excepcts all can
+* PIM NBMA treats as collect of P2P links
+* Doesn't support dense (apart from SD if MA located on hub and can comm with all spokes)
+* `ip pim nbma-mode` on interface
+
+## Multicast over GRE
+* Run same commands
+* RPF will fail unless RP reachable over tunnel
+* Use static mroute to allow it to be an interface for RPF
+* Same for group for when SPT switchover kicks in and forwarding back via IGP dest, not tunnel
+
+## Multicast BGP
+* Used when requirng different topology from unicast
+
+## Multicast Stub routing
+* Useful in PIM-DM when periodic flooding and pruning of mc'ast traffic
+* In SM and Bidi, eliminates group to RP mapping cache on stub device
+* Intended for f/wing into stub from distribution
+ * sources only work in DM
+ * SM and bidi filter at first hop and cause RPF failure
+ * Rx'ers cant be further downstream than stub
+ * Passive - Doesn't send or accept pim messages, assume PIM device is only one in network, and thus is DR and DF for all bidir PIM groups
+ * Filter restricts neighbours frmo participating
+  * Used for more than 1 m'cast device on LAN otherwise they consider themselves as DR/DR, meaning duplicate traffic + looping 
+
+## Multicst Helper
+* Allows transport of b'cast packets across m'cast network, avoiding unnecessary 
+* First hop router must translate from b'cast to m'cast
+* Last hop vice versa
+
 # Processes
 
 ## Sources sending packets to RP
@@ -553,6 +590,7 @@ ip pim send-rp-announce loopback0 scope 10
 ## BSR
 
 **BSR**
+
 ```
 ip multicast routing
 
@@ -621,6 +659,98 @@ ipv6 pim bsr candidate rp 2001:1:1:1::1
 ipv6 pim bsr candidate rp 2001:3:3:3::3
 ```
 
+## Multicast VLAN Registration
+
+```
+no ip multicast-routing
+mvr
+mvr group 239.9.0.1
+mvr vlan 1200 --- source
+
+int vlan 1200
+ ip pim dense-mode
+
+int vlan 1100
+ ip pim dense-mode
+
+int Po20
+ mvr type-source
+
+int Gi6/0/1
+ mvr type receiver
+```
+
+## IGMP Profile
+
+```
+ip igmp profile NUMBER {permit| deny} range GROUPS
+
+int Fa0/0
+ ip igmp filter PROFILE-NUMBER -- l2 ints only
+
+ip igmp max-groups NUM --- 0-4294967294
+```
+
+## PIM Accept RP and Register Filtering
+
+```
+ip pim accept-register {list ACL | route-map NAME}
+
+ip pim accept-rp {rp-address|auto-rp} [ACL]
+```
+
+* ACL - list of groups
+* auto-rp - Accepts joins and registers only for RPs in Auto-RP cache
+
+## Multicast BGP
+
+```
+router bgp 65001
+ address family ipv4 multicast
+  neighbor X.X.X.X activate
+  network PREFIX mask MASK
+  neighbour X.X.X.X translate-update ipv4 multicast --- IMports v4 uni into multi
+```
+
+## Multicast Helper
+
+**First Hop**
+```
+access-list NUM deny/permit udp {any | host} <--- traffic to translate
+
+int Fa0/0
+ ip multicast helper-map broadcast GROUP-ADDR acl
+
+ip forward-protocol udp [port]
+```
+
+**Last Hop**
+```
+int Fa0/0
+ ip multicast helper-map GROUP BCAST-ADR ACL
+
+int Fa0/1
+ ip direct-broadcast
+```
+
+## Multicast Rate limit
+
+```
+ip multicast rate-limit {in | out} [video | whiteboard] [group-list ACL] [source-list ACL] kbps
+```
+* Video and white boradf rate limiting based on UDP ports (from SAP cache), requires ip sap listen
+* Default kbps is 0 unless stated
+
+## Multicast Stub
+
+```
+int Fa0/0
+ ip pim passive
+
+int Fa0/1
+ ip pim neighbour-filter ACL
+ ip igmp helper-address IP
+```
 
 # Verification
 
@@ -644,6 +774,10 @@ show ipv6 mld interface
 show ipv6 pim traffic
 
 show ipv6 pim group-map
+
+show mvr
+show mvr int
+show mvr members
 ```
 
 
