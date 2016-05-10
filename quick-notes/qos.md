@@ -287,6 +287,143 @@
 * Commands at int level, not global
 * Can shape to slow egress traffic
 
+## Traffic Shaping
+
+* Queues packets to delay
+* release oer time
+* Routers only send at clock rate
+* Lowers rate by alternating between sending and silence
+* Static time interval set (Tc)
+* Bits per Tc = Bc (committed burst)
+* Tc = Bc/CIR (in ms)
+* Bc = committed burst in bits
+* Shaped rate - Bps
+* Be - excess burst, bits over Bc after inactivity
+
+### Mechanics
+
+* Tc = BC/Shape rate
+* Token buckets
+* Bucket filled every Tc start
+* Each token 1 bit
+* At start, shaping can release Bc bits
+* Overflow - Used for Be if exists (can send more at next Tc)
+
+### Generic Traffic Shaping
+
+* `traffic-shape rate RATE [bc] [be] [buffer-limit]`
+* Buffer = max queue buffer in Bps
+* Only shaped rate required, Bc and Be then quarter of Rate
+
+### CB Shaping
+
+* Class for different shape rates
+* `shape [average | peak] MEAN-RATE [[burst-size][excess-burst-size]]`
+* On 320kbps or less
+ * 8000 bits Bc and BE
+ * Tc = Bc/shape rate
+* On more
+ * BC = shape rate by tc
+ * Be=Bc
+ * Tc = 25ms
+
+**Bandwidth Percent**
+* Sees bw of int or subint
+* Sub ints don't inherit phy bw, 1544 default
+* Bc and Be config'd as Ms (bits sent at configd rate in time period)
+* Tc set to Configure Bc
+* Eg shape average 50 125ms
+ * 50 is shaper rate
+ * 125ms is bc
+
+**Peak rate**
+* Refills Bc + Be for time intervals
+* Can send Bc and Be per time period
+* Shaping rate becomes
+ * Config'd rate x (1 + Be/Bc)
+ * 64 (1 + 8000/8000) = 128
+
+**Adaptive Shaping**
+* `shape adaptive MIN-RATE`
+
+## Policing
+
+* Monitors bit rate of combined packets
+
+### Single Rate, Two Colour
+
+* No excess burst
+* Policer refills bucket according to policing rate
+* Token is a byte, 96kbps over a second, bucket filled with 12,000 tokens
+* Not refilled on time interval
+ * Reacts to arrival of packet, prorates tokens
+ * ((Current packet arrival - Previous packet arrive) x Police_Rate) / 8
+* Then decides if newly arrived packet conform or exceed
+* Number of bytes (xp)
+* Number of tokens in bucket (Xb)
+* Conform - Xp lt or eq to Xb, takes Xp tokens
+* Exceed - Xp gt Xb - None
+
+### Single Rate Three Colour
+
+* First bucket like before
+* If Bc bucket oveflows, fills Be
+* After filling buckets, another option
+ * if Xbe gt or E Xp Gt Xbc, tokens from Be bucket only
+* PIR (Peak information rate)
+* Packets under CIR conform
+* Packets under PIR exceed
+* Conform - Xp lt or eq Xbc - Xp tokens from Bc and Xp from Be
+* Exceed - Xbc lt Xp lt or Eq Xbe - Xp tokens from Be only
+* Violate - Xp gt Xbc and Xp gt Xbe - none
+
+### Defaults for Bc and Be
+
+* If Bc not config'd, equivalent in bytes to 1/4 send at police rate
+ * Bc = CIR/32 (i.e. bits to bytes)
+* Single rate two colour - BC = CIR/32, Be = 0
+* Single rate three colour - Bc = CIR/32, Be = Bc
+* Dual rate three colour = Bc = Cir/32, Be = PIR/32
+
+### Dual rate
+
+* Has CIR and PIR
+* `police {cir CIR} [bc CONFORM-BURST] {pir PIR} [be PEAK-BURST] [conform-action ACTION exceed ACTION [violate-action ACTION]]`
+
+### Multi action
+
+* Just go into policing sub config mode, and add multiple lines (eg multiple violates, multiple exceeds etc)
+
+### Policing by percentage
+
+* Config'd by num of ms
+* IOS calcs Bc and Be by how many bits sent in that many ms
+
+### Committed Access Rate
+
+* Single rate two colour
+* Set rate in bps, bc and be
+* Can use ACLs
+* Uses rate limit command
+* Does support be, but no violate category
+
+## Hierarchical Queuing Framework
+
+* Tree structure using policy maps
+* When data through interface using HQF, data classified so it traverses tree branches
+* Idea is to apply service policies to service policies
+ * Gives the ability to apply a global approach to traffic, while also saying some traffic will have other extended needs
+ * Eg, shape everything to a rate, but then for certain traffic (eg HTTP) give it a different amount of bandwidth percentage
+* Flow based Fair queueing in Classdefault rather than WFQ - scheduled equally rather than IPP or DSCP
+* Default FIFO when no polucy map
+* Class default abd bw - Minimum 1% of int by default
+* Default queueing for Shape CLass is FIFO
+* Policy maps can reserve 100% of int bw
+ * No explcit guarantee in class default, can have max 99% of int bw
+* In HQF, shaping after encap on re
+* When shape in parent policy applied to tunnel, can use class-default only
+ * Cannot configured user defined class in parent
+
 
 # Processes
 
@@ -418,6 +555,16 @@ int fa0/0
 * Gateways place in priority queue
 * When using LLQ, PQ size includes l2 overhead
 * RSVP bw does not - set RSVP bw equal to PQ minus L2 overhead
+
+## CB Policing
+
+```
+policy-map police-all
+ class class-default
+  police cir 96000 bc 12000 be 6000 conform-action transmit exceed-action set-dscp-transmit 0 violate-action
+```
+
+* Apply as above per class for different treatment of different traffic
 
 # Verification
 
