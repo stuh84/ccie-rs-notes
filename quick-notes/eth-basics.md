@@ -147,6 +147,60 @@
 * switch 2 preempt TIMER (time after VSL comes up)
 * Heartbeats across VSL detect sup failure
 
+## Stackwise
+
+* up to 9 in stack
+* Stackwise plus or sstackwise ports
+ * plus on 3750x or e, 3750 non plus
+* Homogenous - all one type
+* Mixed stack - any model, or same model diff features, or both
+* Switch stack ID'd by Bridge ID, and if L3, router MAC (determined by master)
+* Stack member number
+* Stack number priority - highest becomes new master on failure
+* Master has start and running configs
+ * Each member has copy for backup
+* If switch replaced with identical model, gets same config
+* Membership change causes no interruptions, unless stack master gone, or adding powered on switch
+ * Powered on switches causes masters to elect n/w each aother, and other memebrs to reboot
+
+### Election
+
+1. Current stack master
+2. Highest priority
+3. Not using default int-level config
+4. Highest priority feature and image combination
+ * IP services and crypto
+ * IP services no crypto
+ * IP Base and crypto
+ * IP Base no crypto
+5. Lowest MAC
+
+* No preemption
+* If stack master changes, BID and router MAC could change
+ * Enable persistent mac
+
+* show switch - shows switch members
+ * default is 1
+ * Takes lowest number when joining stack
+* `switch CURRENTNUM renumber NEW`
+ * Resets config if none associated
+ * Cannot use on provisioned switch
+* `switch NUM priority VALUE`
+* `switch NUM provision TYPE`
+ * Enables ability to config for switch not up yet
+ * if type doesn't match, default config applied
+ * If numbe conflicts, renummered and applies provisioned config
+* SDM Mismatch
+ * Resolved after version mismatch
+* All members must run IOS image and feature set to ensure compat
+* show platfcorm stack-manager all
+* Same IOS means same version
+* Same major versions but different minors particually comptaible
+ * Will try to upgrade
+ * Can advise if no image found which to use
+* Default stack mac addr timer disabled, member number 1, priority 1, offline config (not provisioned)
+
+
 ## IOS-XE
 
 * Kernel based open system

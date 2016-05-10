@@ -55,10 +55,57 @@
  * MPLS QoS could be different from another for same prefix
  * MPLS TE - fec is tunnel
 
+## 6PE and 6VPE
+
+* Allows v6 over v4 network
+* For single label per prfix, 4000 max per box
+* Edge routers dual stack
+* Only static routes and BGP for v6 in VRF context
+* PEs use v4-mapped v6 address for v6 prefix
+* Next hop advertised by PE for both is v4 for v4 L3vpn routes, but with ::FFFF: prepended
+
+### 6PE
+
+* Customers v6 prefixes inside global
+* v6 labels/prefixes exhanged using labelled v6 over v4 BGP between PEs
+
+### 6VPE
+
+* customer v6 prefixes in vrf
+* v6 labels and precies exchanged via VPNv6
 
 # Processes
 
 # Config
+
+## 6PE
+
+```
+ip cef
+ipv6 cef
+ipv6 unicast routing
+
+router bgp 1000
+ no sync
+ no bgp default ipv4-unicast
+ neighbor 10.108.1.12 remote-as 65200
+ neighbour 10.108.1.12 update-source Lo0
+ address-family ipv6 
+  neighbor 10.108.1.12 activate
+  neighbor 10.108.1.12 send-label
+```
+
+## 6VPE
+
+```
+router bgp 1000
+ neighbor 2001::1 remote as 65202
+ address family ipv6 vrf VPE1
+  neighbor 2001::1 activate
+ address family vpnv6
+  neighbor 1.1.1.1 activate
+  neighbor 1.1.1.1 send-community extended
+``` 
 
 # Verification
 

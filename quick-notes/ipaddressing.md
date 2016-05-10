@@ -31,6 +31,12 @@
 
 * Look at RA for Other Config Flag
 
+### DHCPv6-PD
+
+* Prefix delegation - set a router to hand out subsets from a larger prefix
+ * eg 2001:db8::/32, hand out 48s from this
+ * v6 client picks up 48, and then uses on interface
+
 ### Transition technologies
 
 **NAT-PT**
@@ -62,6 +68,23 @@
 * Source v6 add associated with v4 config'd pool
 * Dest v6 based on NAT64 stateful prefix or well known prefix
 * Translated and fw
+
+## IPv4 Options
+
+* Options 0  and 1 exactly one octet (type field)
+* All others 1 octet type, length, 2 octets for data
+* Type is one bit copied field, two bit class, five bit option
+ * Copied means whether to go in each fragment
+* Option - 0 for control, 2 for debugging and measurement
+* Option numbers
+ * 0 - end of list
+ * 1 - no operation
+ * 2 - security - security codes
+ * 3 - Loose Source routing - can forward to any intermediate routes to get to dest
+ * 4 - Internet timestamp
+ * 7 - Record route - records route datagrams take
+ * 8 Stream Id - 4 octets
+ * 9 - Strict Source routing - can only forward based on what source route indicated
  
 # Processes
 
@@ -140,6 +163,32 @@ nat64 v4 pool NAME STARTIP ENDIP
 nat64 v6v4 list ACL pool NAME
 ```
 
+## DHCPv6-PD
+
+**Server**
+```
+ipv6 dhcp pool dhcpv6
+
+prefix-delegation pool dhcpv6-pool1 lifetime 1800 600
+
+ipv6 local pool dhcpv6-pool1 2001:db8:1200::/40 48
+
+int Se0/0
+ ipv6 dhcp server dhcpv6
+```
+
+**Client**
+
+```
+int Se0/0
+ ipv6 address autoconfig default
+
+ipv6 dhcp client pd prefix-from-provider <--- NAME
+
+int Fa0/0
+ ipv6 address prefix-from-provider ::1:0:0:0:1/64
+```
+
 **PAT** - Add overload to above command
 
 # Verification
@@ -150,3 +199,4 @@ show nat64 logging
 show nat64 prefix stateful
 show nat64 timeouts
 ```
+

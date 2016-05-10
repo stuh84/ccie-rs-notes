@@ -186,6 +186,20 @@
 * No sync to servers not already sync'd
 * NTP Leap - only allowed within month before leap is to happen
 
+## Performance Monitor
+
+* monitors packet flows in network
+* similar to netflow and flexible netflow
+* Requires cef
+* Components
+ * Interface - service policy
+ * Policy - type performance monitor
+ * Class map - matching criteria
+ * Flow monitor - type performance monitor
+ * Flow record - type performance monitor
+ * Flow exporter
+* Configure flow record, specify fields, exporter sends to dest
+* Then flow monitor, class map, policy map with 1 or more classes, then apply to int
 
 # Processes
 

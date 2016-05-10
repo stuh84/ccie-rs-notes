@@ -71,6 +71,9 @@
  * doesnt change hello
 * Hold - 3x hello
 * Active timer - default 3 minutes, can be 1 to 65535, timers active-time
+* RTO - Time to wait for an Ack to a reliable m'cast before sending as unicast
+* SRTT - Per neighbour, average time in ms bw transmission of packet and the ack
+ * Default RTO 200ms, increases on failed query response
 
 # Trivia
 
