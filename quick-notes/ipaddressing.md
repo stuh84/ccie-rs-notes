@@ -90,6 +90,27 @@
  * 8 Stream Id - 4 octets
  * 9 - Strict Source routing - can only forward based on what source route indicated
  
+## Static NAT and IP Aliasing
+* No-alias in NAT command prevents router from installing local IP alias
+* Router still responds to ARP for global translated IPs
+* Does not terminate connection itself
+* Essentialy means it will not respond to arp for global addresses
+
+## Policy NAT
+
+* NAT with same dest can map to different IPs (route map)
+
+## Stateful NAT with HSRP
+* State info must be transferred before state change
+* Has HSRP mode or active/backup mode
+* UDP Comms for stateful info
+* Can use TCP
+
+## Stateful NAT
+
+* Allows for Inside/Outside assymetry
+* Works with some ALGS
+
 # Processes
 
 # Config
@@ -204,6 +225,57 @@ int e0/0
  ipv6 address PREFIX-NAME sub-bits/length
 ```
 
+# Policy NAT
+
+```
+access-list 102 permit tcp host 1.1.1.1 host 2.2.2.2 eq 80
+access-list 103 permit tcp host 1.1.1.1 host 2.2.2.2 eq 443
+
+route-map One 
+ match ip address 102 
+ set int Fa0/0
+
+route-map Two
+ match ip address 103
+ set int Fa0/1
+
+ip nat inside-source route-map NAME int Fa0/0
+ip nat inside source static 1.1.1.1 1.1.1.3 route-map NAMES
+```
+
+## Stateful NAT with HSRP
+
+```
+int E0/0
+ standby GROUP ip
+ standby GROUP preempt delay .....
+
+ip nat stateful-id NUMBER redundancy HSRPGROUP mapping-id NUM [protocol udp] [as-queuing disable]
+ip nat inside source route-map NAME pool NAME mapping-id NUMBER [overload]
+```
+
+## Stateful NAT with Active/Backup
+
+```
+ip nat stateful id NUM primary IP peer IP mapping-id NUM
+ip nat inside source route-map NAME pool NAME mapping-id NUMBER [overload]
+```
+
+* Backup instead of primary for standby
+
+```
+ip nat inside destination LIST NUM pool NAME mapping-id ID
+ip nat outside source static GLOBIP LOCIP extendable mapping-id ID
+```
+* Above allows ALG
+
+## NAT Default Interface
+
+```
+ip nat inside source-list ALL interface S0/0 overload --- Inbound out
+ip nat inside source static X.X.X.X int Se0/0 --- Outbount in to X.X.X.X
+```
+
 # Verification
 
 ```
@@ -212,4 +284,8 @@ show nat64 logging
 show nat64 prefix stateful
 show nat64 timeouts
 ```
+## Stateful NAT
 
+```
+show ip snat distributed verbose
+```
