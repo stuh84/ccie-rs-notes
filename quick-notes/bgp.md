@@ -135,6 +135,41 @@
 * Activate peers in AFI
 * Extended Communities by default only
 
+## Neighbor Disable-connected
+
+* Allows peering of eBGP neighbour with a loopback without changing TTL
+* Effectively avoids rewriting IP TTL
+* Does mean neighbour must be 1 hop away
+
+## Multisession Transport per AF
+
+* Separate TCP session per AF
+* Multiple topologies
+* `neighbor X.X.X.X transport multisession`
+* Uses scope hierarchy
+
+## Third Party next Hop
+* Sets it correctly in local NGP table
+* eBGP changes it
+* If all peers shae same segment, next hop unchanged
+
+## BGP Link Bandwidth
+
+* Adv bw of AS exit link as ext-comm
+* Propagated to iBGP peers
+* Used for BGP multipath and unequal BW lb
+* CEF required
+* Only under v4 and vpnv4
+* Only for DC'd eBGP neighbours
+* Enabled with `bgp dmz link-bw`
+* Two paths seen as same for LB if weight, LP, AS PATH, med and IGP costs same
+* Will be seen in show ip bgp PREFIX
+
+## BGP over GRE
+
+* Need to change next hop if iBGP other network never knows to use it
+* GRE TTL decrements
+
 # Processes
 
 ## Neighbour establishment
@@ -343,3 +378,17 @@ route-map RM2
 
 * Non exist - says what networks shouldn't exist
 * Adv map - If networks match by above do not exist, advertise from advertise map matched networks
+
+## Dynamic neighbours
+
+```
+router bgp 65001
+ bgp listen range SUBNET peer-group NAME
+ neighbor GROUP parameters
+```
+
+## Max AS Limit
+
+```
+bgp max-as limit NUMBER <--- As's above number, discards, 1-2000
+```
