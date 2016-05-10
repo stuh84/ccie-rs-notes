@@ -328,4 +328,18 @@ router bgp 65001 <--- SUB-AS
  bgp confederation peers SUB-AS <--- What other ASs are in confed
 ```
 
+## Conditional Advertisement
 
+```
+router bgp 65412
+ neighbor X.X.X.X advertise-map RM1 non-exist-map RM2
+
+route-map RM1
+ match ip address 65
+
+route-map RM2
+ match ip address 60
+```
+
+* Non exist - says what networks shouldn't exist
+* Adv map - If networks match by above do not exist, advertise from advertise map matched networks

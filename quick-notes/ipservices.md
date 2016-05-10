@@ -102,6 +102,40 @@
 * Events track, set rising and falling thresholds
 * For trap, SNMP community of server
 
+## BFD
+
+* Requires CEF
+* Async mode - contrl packets sent between two systems (i.e. must be set on both sides)
+* Enabled at int level, applied to routing protocols
+* Interval negotiation
+* QoS of CoS 6 by default
+* ip route static bfd INT NH-TO-MONITOR
+ * says to monitor a next hop over an interface, for use with static routes
+* Echo mode
+ * Enabled by default
+ * works with async
+ * Echoes by forwarding, sent back on same path
+ * "without assymetry"
+ * `no bfd echo`
+ * `no ip redirects` required
+ * Used to forward in hardware quickly
+* BFD Template - can apply to PW classes etc
+
+### Multihop
+
+* Uses template (keyword multihop)
+* Uses BFD map
+* Associated mode - static route auto linked to bfd static if next hop matches destination
+* Unassociated - not added to any routes automatically
+
+### Dampening
+
+* Done in tempalte, takes down until network stablisies
+* Can auth with key chains
+
+## Slow timers
+* For control packet,s can bring down timers, for checking liveliness when echo mode enabled
+
 # Processes
 
 ## WCCP
@@ -239,3 +273,32 @@ ip http authentication [ aaa | local | enable | tacacs ]
 
 ip http secure-server <--- on 12.4 or later, disables HTTP - can specify cipher suite
 ```
+
+## BFD
+
+```
+iint vlan 10
+ bfd interval 50 min_rx 50 multiplier 5
+
+router eigrp 
+ bfd all-interfaces
+
+router ospf/isis
+ bfd all-interaces
+
+router bgp 49182
+ neighbor x.x.x.x fall-over bfd
+```
+
+**MUltihop**
+```
+bfd-template multihop DAVE
+ interval min_tx 50 min_rx 50 multiplier 5
+
+bfd map ipv4 4.4.4.0/24 1.1.1.0/24 DAVE <--4.4.4.0 = dest, 1.1.1.0 = source
+
+router bgp 49182
+ neighbor x.x.x.x fall-over bfd multihop
+
+ip route static bfd <mh-dest> <mh-source> [unassociate]
+``` 

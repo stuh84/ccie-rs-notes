@@ -337,6 +337,13 @@
 * Flush type 1s with too high cost
 * After dead interval and neighbours dead, flush own type 1
 
+## Fast Hellos
+
+* Set with `ip ospf dead-interval minimal hello-multiplier N`
+* Sets hellos to under a second
+* Can send btetween 3 and 20 every second (i.e. every 50ms)
+* Hellos adv as 0
+* Dead interval must be consistent on segment
 
 # Processes
 

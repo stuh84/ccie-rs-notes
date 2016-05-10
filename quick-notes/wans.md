@@ -21,6 +21,32 @@
  * Looped link detection
  * L2 Load Balancing
  * Auth
+* ppp lcp predictive - Reduces neg time, predicts reponses from peers
+* As above but ppp ipcp predictive
+
+**LCP Process**
+
+Config-Request ->
+Config Reject 
+Config Request ->
+Config-Nack
+Config Request
+Config-Ac
+
+* async mode interactive/dedicated
+ * Dedicated - reserved for PPP and SLIP connections
+ * Interactive, users prompted to connect to this interface
+* ppp async - sending data cross async ints
+ * byte stuffing - ecape character placed bfore control character in data stream, then mapped to other characters that data link wont confused
+ * XON and XOFF non-printable
+
+### IPCP
+
+* Ignores mask requests and offers, problem with running RIP (use no ip validate source)
+ * because RIP checks if belongs to same network as interface
+ * Different subnet masks on interface as to source of update
+ * Stop validating
+
 
 ### MLPPP
 

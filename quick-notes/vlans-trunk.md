@@ -79,3 +79,7 @@
 * If v lan DB with higher rev, auto assumed new vlan DB
 
 # Config
+
+```
+switchport trunk pruning vlan [add/except/none/remove] <--- Pruning eligible list
+````
