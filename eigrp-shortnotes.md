@@ -5,7 +5,7 @@
 * IP Protocol 88
 * RTP for uni/m'cast delivery
 * Hello and hold times
-* Full updates on neighbour up
+* Full updates on neighbor up
 * Partial after
 * MD5 or SHA auth
 * Mask included in each route (VLSM/classless)
@@ -46,13 +46,13 @@
 * Hello protocol
 * RTP
 * Allows complete routing info exchange, then changes only after (RTP verified)
-* Loop free paths found with FC (packets not forwarded to neighbour that coudl loop)
+* Loop free paths found with FC (packets not forwarded to neighbor that coudl loop)
 
 **Diffusing Computation**
-* FC could cause neighbour with lease cost path being ineligible
-* Neighbours queried for their best path after topology change
+* FC could cause neighbor with lease cost path being ineligible
+* neighbors queried for their best path after topology change
 * Replies with udpated distances
-* Some neighbours respond straight away
+* Some neighbors respond straight away
 * Some propagate query further
 
 **DUAL**
@@ -75,7 +75,7 @@
 * **bandwidth** per int command
 * If none assigned, IOS assigns one (true speeds unless tunnel or serial)
 * Minimum bandwidth along route taken
-* Compares bandwidth advertised by neighbour to bandwidth advertised to neighbour
+* Compares bandwidth advertised by neighbor to bandwidth advertised to neighbor
 * 1kbps to 10Gbps
 
 ### Delay
@@ -155,7 +155,7 @@ Consist of: -
  * K6
 
 * Named mode automatically wide metrics
-* Detect if neighbour supports it
+* Detect if neighbor supports it
 * Wide preferred
 * If mixed, routers using wide use both metrics in messages, allowing non-wide support
 * RIB only supports 32 bit metrics, so downscaled. Level of downscaling 1 to 255, default 128
@@ -177,7 +177,7 @@ Use delay as bandwidth can have other effects, also says amount EIGRP can use on
 * Checksum - 24 bit on entire EIGRP packet
 * Flags - 32 bits, 0x1 Init, 0x2 Conditional Received, 0x4 Restart, 0x8 End-Of-Table
 * Seq - 32 bit, RTP
-* Ack - RTP, contains seq number of last packet from neighbour. Hello with nonzero ack treated as ack instead of hello (only non zero if packet itself is unicast, acks never unicast usually)
+* Ack - RTP, contains seq number of last packet from neighbor. Hello with nonzero ack treated as ack instead of hello (only non zero if packet itself is unicast, acks never unicast usually)
 * Virtual ROuter ID - 0x1 Unicast AF, 0x2, Multicast AF, 0x8000 UNicast Service AF
 * ASN - 16 bit
 * TLV - Route entries and EIGRP dual info
@@ -212,11 +212,11 @@ List/array (vector) of Internal and External Route TLVs, is DV nature of EIGRP
 ## Hello packets
 
 * Periodic
-* Identifies neighbours
-* Verifies if neighbours comptaible (common subnet, ASN, K values, Auth)
+* Identifies neighbors
+* Verifies if neighbors comptaible (common subnet, ASN, K values, Auth)
 * Is keepalive
 * 224.0.0.10 or FF02::A
-* Static neighbours as unicast
+* Static neighbors as unicast
 * Hello 5s default, 60 on NBMA with ints less than 1544kbps
 * Opcode 5
 * Not ack'd
@@ -236,10 +236,10 @@ List/array (vector) of Internal and External Route TLVs, is DV nature of EIGRP
 
 * Routing info
 * Unicast or multicast
-* New adj buildup is unicast, unless multiple neighbours on one int in short time (multicast)
+* New adj buildup is unicast, unless multiple neighbors on one int in short time (multicast)
 * Post full sync, m'cast
-* If no ack from update, unicast to unresponsive neighbour
-* Always unicast on p2p and static neighbours
+* If no ack from update, unicast to unresponsive neighbor
+* Always unicast on p2p and static neighbors
 * Reliable delivery
 * Opcode 1
 
@@ -247,7 +247,7 @@ List/array (vector) of Internal and External Route TLVs, is DV nature of EIGRP
 
 * Seach for best route to dest
 * Reliable
-* M'cast on multiaccess only when dynamic neighbours
+* M'cast on multiaccess only when dynamic neighbors
 * If not ack'd in proper time, unicast retransmit
 * P2p and static unicast
 * Must be ack'd, although ack's receipt, not replies
@@ -264,7 +264,7 @@ List/array (vector) of Internal and External Route TLVs, is DV nature of EIGRP
 ## SIA-Query and SIA-Reply
 
 * During prolonged diffusing computation
-* Verifies if neighbour is truly reachable and still computating
+* Verifies if neighbor is truly reachable and still computating
 * SIA-Reply if still computating
 * Timers govern maximum computation, extended on SIA-Reply
 * Unicast and reliable
@@ -278,11 +278,11 @@ List/array (vector) of Internal and External Route TLVs, is DV nature of EIGRP
 * Seq number - global value, maintained per EIGRP process, incremented whenever packet originated by instance
 * Acks sent in response to reliable packets, ack is rx'd seq
 * Ack can piggyback onto own reliable packets
-* If acks not rx'd in time, retransmits as unicast to unresponsive neighbour
+* If acks not rx'd in time, retransmits as unicast to unresponsive neighbor
 
 ### Conditional Receive
 
-* Partitions neighbours on multiaccess interface
+* Partitions neighbors on multiaccess interface
 * Two groups, well behaved (ack messages) and lagging (failed to ack at least 1 reliable packet)
 * Flag set on multicast packets for routers that ack'd all so far
 
@@ -290,8 +290,8 @@ Above accomplished by: -
 
 * Hello sent with Sequence TLV and Next'Mcast Sequence TLV (sequenced hello)
 * Next M'Cast - Upcoming seq number of next reliable message
-* Sequence TLV - List of lagging neighbours, tells these to ignore next message
-* Neighbour puts itself in CR mode
+* Sequence TLV - List of lagging neighbors, tells these to ignore next message
+* neighbor puts itself in CR mode
 * Sending router sends next m'cast with CR flag
 * Routers in CR mode process as normal
 * Routers not ignore it
@@ -299,7 +299,7 @@ Above accomplished by: -
 
 * Ack wait time specified by multicast flow timer
 * Time between subsequent unicast specified by RTO (Retransmission timeout)
-* Flow and TRO calc'd for each neighbour from SRTT
+* Flow and TRO calc'd for each neighbor from SRTT
 * Smooth Round Trip Time - average elapsed time between reliable packet and ack, in ms
 
 # Router Adjacencies
@@ -308,7 +308,7 @@ Above accomplished by: -
 * Can be static
 * 224.0.0.10 or FF02::A
 * Static usually on NBMA/none m'cast media (FR)
-* Static stops m'cast on interface neighbour is reachable
+* Static stops m'cast on interface neighbor is reachable
 * Following need to match
  * Auth
  * K-Values
@@ -321,7 +321,7 @@ Above accomplished by: -
 * **ip hello-interval eigrp 1**
 * Hold time default 3 times hello
 * Changing hello doesn't change hold
-* If hold expires, neighbour unreachable, dual informed
+* If hold expires, neighbor unreachable, dual informed
 * **ip hold-time eigrp 1**
 
 **Adjacency Process**
@@ -340,15 +340,15 @@ Above accomplished by: -
 * Packets exchanged unreliable, other than reliable with Init flag
 * Null update - no routing info
 
-**show ip eigrp neighbours**
-* H (handle) - Internal number assigned to neighbours, independent of addressing
+**show ip eigrp neighbors**
+* H (handle) - Internal number assigned to neighbors, independent of addressing
 * Address and Interface
-* Hold - From value adv'd by neighbour
+* Hold - From value adv'd by neighbor
 * Uptime
 * SRTT
 * RTO
 * Q Cnt - Enqueued reliable packets, must be zero in stable network. Non-zero normal during db sync or convergence
-* Seq number - Seq number of last reliable packet from neighbour
+* Seq number - Seq number of last reliable packet from neighbor
 
 # Diffusing Update Algorithm
 
@@ -363,13 +363,13 @@ Stores routing info
 
 * Prefix of known dests (address and mask)
 * FD of network
-* Address of neighbouring router that advertised network (with egress int)
+* Address of neighboring router that advertised network (with egress int)
 * Metrics of networks adv'd by neigh, plus resulting metric of path to dest
 * State of dest network
 * Other info (flags, type origin etc)
 * Populated with connected networks (local or redist'd)
 * Also pop'd with contents of Update, Query, Reply, SIA-Query and SIA-Reply
-* Neighbour with least cost path to destination AND loop free path chosen from topology table
+* neighbor with least cost path to destination AND loop free path chosen from topology table
 
 Networks active or passive
 * Passive - Shortest Path found
@@ -378,17 +378,17 @@ Networks active or passive
 Active for query packets being sent out
 * Can't modify routing entry while queries still not replies to (i.e. no removing or changing next hop)
 * Route loop free in this state
-* If neighbour providing least-cost path can't guarantee loop free path, route in active state
+* If neighbor providing least-cost path can't guarantee loop free path, route in active state
 
 **show ip eigrp topology all-links** - All routes, including FC check failures
 
 # Computed, Reported and FDs, and FCs
 
 **RD**
-* Best distance of particular neighbour to destination
+* Best distance of particular neighbor to destination
 
 **CD**
-* Total metric to destination via particular neighbour
+* Total metric to destination via particular neighbor
 
 (CD/RD) in **show ip eigrp topology**
 
@@ -400,51 +400,51 @@ Active for query packets being sent out
 * Compared with RD, FD has at some point been at a certain value, meaning RD must be lower (nearer to destination)
 * Shouldn't be a case if using a path with lower RD than FD that a routing loop forms
 
-If current distance lower, packets never pass back to this router. Any neighbour closer to destination thatn this route has been since last time destination became Passive, cannot form loop. 
+If current distance lower, packets never pass back to this router. Any neighbor closer to destination thatn this route has been since last time destination became Passive, cannot form loop. 
 
 RD < FD = Feasibility Condition
 
-FC not necessary for loop freedom. Means every neighbour meeting FC provides loop free path, but not every loop-free path satisfies FC>
+FC not necessary for loop freedom. Means every neighbor meeting FC provides loop free path, but not every loop-free path satisfies FC>
 
 All passing FC are FSs. Least CD to dest are Successors (can be multiple)
 
 # Local and Diffusing Computations in EIGRP
 
-* TC = Distance to network change or new neighbour online for that network
+* TC = Distance to network change or new neighbor online for that network
 * Detected by receiving Update, Query, SIA-Query or SIA-Reply with info about network
 * Also detected by local int metric change
-* Neighbour going down processed with CD/RD through neighbour set to inifnity
+* neighbor going down processed with CD/RD through neighbor set to inifnity
 
 If new shortest path passes FC, FS, performs following: -
 
 1. FS providing least CD is successor
 2. If CD over new Successor < current FD, FD updated to new CD
 3. Routing table update
-4. If current distance to dest changed, update packet to neighbours
+4. If current distance to dest changed, update packet to neighbors
 
 Above is local, info in topology table. Passive state through this.
 
 If no FS after TC, could be a loop. Diffusing computation started: -
 1. Route locked, can't be removed or change next hop
 2. FD set to current CD through current Successor. If router needs to advertise its distance while in Active state, uses current CD through successor
-3. Network placed in Active state, queries sent to neighbours
+3. Network placed in Active state, queries sent to neighbors
 
 Queries contain network and routers current CD to it
 
-Each neighbour updates topology table using distance in query, re-evaluates its Successors and FS. After, neighbour till has own FS or Successor with least-cost loop-free path, or needs to change current Successor.
+Each neighbor updates topology table using distance in query, re-evaluates its Successors and FS. After, neighbor till has own FS or Successor with least-cost loop-free path, or needs to change current Successor.
 
-If neighbour still has succesor, reply sent back with current distance. Route doesnt go active on this neighbour. Diff Comp boundary here.
+If neighbor still has succesor, reply sent back with current distance. Route doesnt go active on this neighbor. Diff Comp boundary here.
 
 If no successor, diff comp, own queries, own CD through current successor. Query through this part of network.
 
-One destination active, must wait on replies. Once replies received, FC check skipped, and back to passive. FD becomes CD by selected neighbour. If router Active by receiving queries, it replies to queries, with distance it now has. Otherwise only updates
+One destination active, must wait on replies. Once replies received, FC check skipped, and back to passive. FD becomes CD by selected neighbor. If router Active by receiving queries, it replies to queries, with distance it now has. Otherwise only updates
 
-Main info in Update, Query, Reply and both SIAs is senders current distance. Computation started only if this changes things for a neighbour.
+Main info in Update, Query, Reply and both SIAs is senders current distance. Computation started only if this changes things for a neighbor.
 
 During successor failure: -
-* When EIGRP detects change, records in topology table, updates RD and CD of neighbour advertising change, or influenced by (link metric)
-* Identify least CD through other neighbours (that have updated CDs themselves)
-* After least CD through neighbour found, verify neighbour meets FC and is FS. If yes, successor. If not, active.
+* When EIGRP detects change, records in topology table, updates RD and CD of neighbor advertising change, or influenced by (link metric)
+* Identify least CD through other neighbors (that have updated CDs themselves)
+* After least CD through neighbor found, verify neighbor meets FC and is FS. If yes, successor. If not, active.
 
 # DUAL FSM
 
@@ -457,9 +457,9 @@ One passive, four active states
 
 Rules are: -
 
-* Passive if distance change means neighbour providing least CD doesnt meet FC
+* Passive if distance change means neighbor providing least CD doesnt meet FC
 * If successor query fails to meet FC, enter A3. Queries sent, wait for replies. If no further distance increase while waiting, get last reply, go active. Change FD, choose new S
-* If distance change from update, int metric, or neighbour loss, and neighbour distance fails FC, A1. Queries sent. If no distance increase or queries from S, back to passive
+* If distance change from update, int metric, or neighbor loss, and neighbor distance fails FC, A1. Queries sent. If no distance increase or queries from S, back to passive
 * If during A3 or A1, distance increase from something other than successors query, another change occured. As this cant be adv out, other routers may not know. State from A3 to A2, or A1 to A0. When last reply arrives, check least CD passes DC, using FD set when active. If FC passes, passive again. If not, return to previous state, another diff comp
 * If during A1 or A0, a query from successor rx'd, another changed occured. State changes to A2, proceeds as above
 
@@ -473,10 +473,10 @@ Query origin flag stores active state
  * Congestion
  * Large topology/complex, lot of prefixes from single node failure
 
-Default active timer is 3 minutes, can be between 1 and 65535, **timers active-time**. If replies not received, router is SIA. Adj torn down to unresponsive neighbours. Diff Comp takes responds to be infinite metric.
+Default active timer is 3 minutes, can be between 1 and 65535, **timers active-time**. If replies not received, router is SIA. Adj torn down to unresponsive neighbors. Diff Comp takes responds to be infinite metric.
 
 SIA-Query and Reply exist to combat above aggressive behaviour
-* If neighbour has no response within half of active, SIA-Query sent
+* If neighbor has no response within half of active, SIA-Query sent
 * SIA-Reply can say "waiting on replies" or "Done, this is metric"
 * Reply send immediately
 * Resets active timer
@@ -545,7 +545,7 @@ router eigrp DAVE
 * help - interactive help
 * maximum-prefix
 * metric - metric and parameters for advertisement
-* neighbour - static
+* neighbor - static
 * network
 * shutdown - shutdown af
 * timers
@@ -611,7 +611,7 @@ Commands are: -
  * Highest ip on non-shut ints
 * Not changed until EIGRP processed removed, RID configured or config'd RID removed
 * Not allowed: 0.0.0.0 and 255.255.255.255
-* RID change drops neighbours
+* RID change drops neighbors
 * Only message if two routers with same RID, "Ignore Route, dup routerid" in **showe eigrp address-family ipv4 events**
 * Seen in **show eigrp protocols** and **show ip protocols**
 
@@ -642,12 +642,12 @@ Commands are: -
 
 * Configured on spokes
 * TLV in hello of Spoke
-* Does not propagate EIGRP routes to its neighbours, unless a **leak-map**
+* Does not propagate EIGRP routes to its neighbors, unless a **leak-map**
 * Router can never be FS for remote networks (i.e. transit router)
 * Advertises subset of own networks
  * set with **eigrp stub**
  * summary, connected, static, redistributed, receive-only
-* Neighbours that see stub never send query to stub
+* neighbors that see stub never send query to stub
 
 Stub handles queries as such: -
 * Originating query packets - Same
@@ -670,7 +670,7 @@ In mixed scenarios
 Config: -
 * eigrp stub connected - Connected routers adv
 * eigrp stub leak-map - Dynamic prefixes in leak
-* eigrp stub receive-only - Receive-only neighbour
+* eigrp stub receive-only - Receive-only neighbor
 * eigrp stub redistributed - allow redist
 * eigrp stub static - static routes
 * eigrp stub summary - Allow summries
@@ -688,7 +688,7 @@ For receive only, must have static routes, or NAT/PAT to reach networks behind i
 * Connected and summary assumed
 
 **show ip protocols** shows if router a stub
-**show ip eigrp neighbors detail** - show stub neighbours
+**show ip eigrp neighbors detail** - show stub neighbors
 
 Changing stub features drops adj
 
@@ -698,7 +698,7 @@ Changing stub features drops adj
 
 * Query boundary
 * Queries inside summarized network propagate as normal
-* If particular component route not in neighbours table, immediate reply with infinite distance
+* If particular component route not in neighbors table, immediate reply with infinite distance
 * Auto and manual
 * Auto based on classful routing (major network as subnet on interface*
 * Auto does nto apply to externals unless internal belongs to same major network as external
@@ -844,7 +844,7 @@ Lowest key-id used for sending, received depends on ID. Can implement new keys l
  * No MP GRE in DMVPN
  * OTP uses LISP UDP encap for data plane, with native EIGRP
  * No tunnel int connfig required
- * Only mandatory static config, specify remote static neighbour
+ * Only mandatory static config, specify remote static neighbor
  * OTP can be protected yb GETVPN
  * NHRP in DMVPN in mappings, OTP uses EIGRP itself
 
@@ -888,11 +888,11 @@ router eigrp CCIE
 
 Seen as lisp0 for outgoing interface routes
 
-**show ipv4 addres ipv4 nei** - Neighbour on other side
+**show ipv4 addres ipv4 nei** - neighbor on other side
 
 **show ip cef X.X.X.X/X internal** - Shows lisp encap effect 
 
-OTP neighbours can be built into a route reflector, config as such
+OTP neighbors can be built into a route reflector, config as such
 
 ```
 int Lisp0
@@ -916,7 +916,7 @@ router eigrp CCIE
   network 192.0.2.31 0.0.0.0
 ```
 
-Remote neighbours allows ACL to limit permitted RR clients
+Remote neighbors allows ACL to limit permitted RR clients
 
 # EIGRP Logging and reporting
 
@@ -925,11 +925,11 @@ Remote neighbours allows ACL to limit permitted RR clients
 * **eigrp event-log size**
 * **eigrp event-logging**
 * **eigrp log-neighbor-changes**
-* **eigrp log-neighbour-warnings**
+* **eigrp log-neighbor-warnings**
 * Event logging on by default, default size 500 lines
 * ** show eigrp address-family {ipv4 | ipv6 events} **
 * Size between 0-443604
-* Neighbour warnings on by default, default 10 second intervals
+* neighbor warnings on by default, default 10 second intervals
 
 # Route Filtering
 
@@ -953,5 +953,5 @@ Remote neighbours allows ACL to limit permitted RR clients
 * Clear routes, but will keep in eigrp topology table
 * No messages sent after command
 
-* **clear eigrp address-family { ipv4 | ipv6 } neighbors** clears all neighbourships
+* **clear eigrp address-family { ipv4 | ipv6 } neighbors** clears all neighborships
 * Using soft on above does graceful restart, resyncs topology tables only
